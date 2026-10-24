@@ -95,3 +95,12 @@ test('中身が空の獣モデルは、コードで作る獣に切り替え、�
   expect(beast.object.name).toBe('beast-fallback');
   expect(beast.colliders.every((c) => Number.isFinite(c.x) && Number.isFinite(c.z) && Number.isFinite(c.radius))).toBe(true);
 });
+
+test('逆光でも岩肌が見えるよう、AIの獣の色を明るく持ち上げ、ほんのり自ら光らせる', async () => {
+  const scene = new THREE.Scene();
+  const beast = await createBeast(scene, '/models/beast.glb', flat, async () => fakeGltf());
+  let material;
+  beast.object.traverse((o) => { if (o.isMesh) material = o.material; });
+  expect(material.color.r).toBeCloseTo(1.4);
+  expect(material.emissive.getHex()).not.toBe(0);
+});

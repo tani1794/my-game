@@ -83,3 +83,20 @@ test('中身が空の木や岩のモデルは置かず、当たり判定も作�
   const vegetation = await createVegetation(scene, preset, flat, async () => ({ scene: new THREE.Group() }));
   expect(vegetation.colliders).toEqual([]);
 });
+
+test('木の幹は焦げ茶、葉は深い緑に塗り直す（おもちゃっぽいオレンジの幹を避ける）', async () => {
+  const scene = new THREE.Scene();
+  const tree = () => {
+    const root = new THREE.Group();
+    root.add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 1, 0.2), new THREE.MeshStandardMaterial({ name: 'woodBarkDark', color: '#c46b2c' })));
+    root.add(new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.5), new THREE.MeshStandardMaterial({ name: 'leafsDark', color: '#2fb35b' })));
+    return { scene: root };
+  };
+  await createVegetation(scene, preset, flat, async () => tree());
+  const colors = {};
+  scene.getObjectByName('vegetation-trees-0').traverse((o) => {
+    if (o.isInstancedMesh) colors[o.material.name] = '#' + o.material.color.getHexString();
+  });
+  expect(colors.woodBarkDark).toBe('#4a3a2a');
+  expect(colors.leafsDark).toBe('#2f5a3a');
+});

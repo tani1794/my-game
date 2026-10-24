@@ -9,7 +9,8 @@ const PILLAR_LAYERS = 7;
 const PILLAR_STEP =
   (PILLAR_HEIGHT + 0.2 - STONE_SIZE) / (PILLAR_LAYERS - 1);
 
-const FLAG_POSITIONS = [[-9, 4], [-7, 6]];
+// 開始位置から見て左手前〜中ほど（獣に隠れない位置）
+const FLAG_POSITIONS = [[-6, -1], [-4.5, 1.5]];
 const FLAG_YAW = 0.4;
 const FLAG_TOP = 2.66;
 const FLAG_LENGTH = 1.6;

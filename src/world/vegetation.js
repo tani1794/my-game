@@ -10,7 +10,10 @@ const ARCH_COLUMNS = [-7, -3, 3, 7].map((x) => ({ x, z: -14 }));
 const TREE_MODELS = ['/models/nature/pine_tall.glb', '/models/nature/pine_default.glb', '/models/nature/pine_round.glb'];
 const ROCK_MODELS = ['/models/nature/stone_a.glb', '/models/nature/stone_c.glb', '/models/nature/stone_e.glb'];
 // 素材の石は青白いので、アーチや崖に合わせた暖かい灰色に塗り直す
-const ROCK_COLOR = '#8c877e';
+const ROCK_COLOR = '#9a958c';
+// 素材の木は幹が明るいオレンジでおもちゃっぽいので、焦げ茶の幹と深い緑の葉にする
+const TRUNK_COLOR = '#4a3a2a';
+const LEAF_COLOR = '#2f5a3a';
 const FLOWER_MODEL = '/models/nature/flower_purple.glb';
 
 const near = (x, z, cx, cz, r) => Math.hypot(x - cx, z - cz) < r;
@@ -204,6 +207,12 @@ export async function createVegetation(scene, preset, heightAt, load = loadGLTF)
   // 木：高さ 8〜13m にそろえる。読み込めた種類だけ置く
   treeModels.forEach((model, kind) => {
     if (!model) return;
+    model.traverse((part) => {
+      if (!part.isMesh) return;
+      const name = part.material.name.toLowerCase();
+      if (name.includes('wood')) part.material.color.set(TRUNK_COLOR);
+      if (name.includes('leaf')) part.material.color.set(LEAF_COLOR);
+    });
     const spots = layout.trees.filter((t) => t.kind === kind);
     scene.add(instanceModel(model, spots, heightAt, (t, size) => t.height / size.y, `vegetation-trees-${kind}`));
   });

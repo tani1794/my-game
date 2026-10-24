@@ -8,11 +8,11 @@ const BEAST_HEIGHT = 5;
 // AIで作ったモデルの正面を、プレイヤーのいる +z に向けるための回転
 const BEAST_YAW = 0;
 const COLLIDER_RADIUS = 2.6;
-const CRYSTAL_COLOR = new THREE.Color('#3fe0d0');
+const CRYSTAL_COLOR = new THREE.Color('#55e6ee');
 
-// 光る強さ：1.5 を中心に明滅させる
+// 光る強さ：1.8 を中心に明滅させる（ブルームがない画質でも結晶だと分かる明るさ）
 function glowAt(time) {
-  return 1.5 + 0.8 * Math.sin(time * 2.2);
+  return 1.8 + 0.6 * Math.sin(time * 2.2);
 }
 
 // 呼吸：足元を支点に、縦方向へわずかに伸び縮みする
@@ -86,6 +86,10 @@ function setupModel(model, heightAt) {
     if (!part.isMesh) return;
     part.castShadow = true;
     part.receiveShadow = true;
+    // 真後ろからの逆光で岩肌が黒く潰れないよう、色を持ち上げ、ほんのり自ら光らせる
+    part.material.color.multiplyScalar(1.4);
+    part.material.emissive.set('#242521');
+    part.material.emissiveIntensity = 0.35;
     addCrystalGlow(part.material, glowUniform);
   });
 

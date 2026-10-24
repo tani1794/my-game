@@ -193,12 +193,13 @@ test('旗は2本で、指定の位置と角度にある', () => {
   const first = find(scene, 'ruins-flag-cloth-0');
   const second = find(scene, 'ruins-flag-cloth-1');
 
+  // 開始位置からの視界の左側（獣に隠れない位置）に並べる
   expect(first.position.toArray()).toEqual([
-    -9, 0, 4,
+    -6, 0, -1,
   ]);
 
   expect(second.position.toArray()).toEqual([
-    -7, 0, 6,
+    -4.5, 0, 1.5,
   ]);
 
   expect(first.rotation.y).toBeCloseTo(0.4);
