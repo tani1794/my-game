@@ -7,6 +7,8 @@ import { createLighting } from './world/lighting.js';
 import { createRuins } from './world/ruins.js';
 import { createPost } from './world/post.js';
 import { createEffects } from './world/effects.js';
+import { createBackdrop, createFallbackBackdrop } from './world/backdrop.js';
+import { withFallback } from './assets.js';
 import { QUALITY_PRESETS, resolveQuality, createAutoDowngrade } from './quality.js';
 import { createStick } from './ui/stick.js';
 import { createHud } from './ui/hud.js';
@@ -35,6 +37,12 @@ const lighting = createLighting(scene, renderer);
 const terrain = createTerrain(scene);
 const ruins = createRuins(scene, terrain.heightAt);
 const colliders = [...terrain.colliders, ...ruins.colliders];
+
+// 遠景：画像が無い・読めないときは、コードで作る空と山にする
+withFallback(
+  createBackdrop(scene, '/textures/backdrop.webp'),
+  () => createFallbackBackdrop(scene),
+);
 const player = createPlayer(scene);
 const followCamera = createFollowCamera(canvas);
 
