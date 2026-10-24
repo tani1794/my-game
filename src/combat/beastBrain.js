@@ -3,8 +3,10 @@
 import { angleTo, angleDiff } from './shapes.js';
 import { mulberry32 } from '../world/random.js';
 
-const MAX_HP = 1600;
-const ENRAGE_BELOW = 800;
+// 体力は、自動の操作役で戦いの長さが3〜5分に入るように調整した値（tests/balance.test.js）
+export const BEAST_MAX_HP = 2800;
+const MAX_HP = BEAST_MAX_HP;
+const ENRAGE_BELOW = MAX_HP / 2;
 const STAGGER_EVERY = 300;
 const STAGGER_TIME = 2;
 const DEATH_TIME = 1.5;

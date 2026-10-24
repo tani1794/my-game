@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest';
-import { createBeastBrain } from '../src/combat/beastBrain.js';
+import { createBeastBrain, BEAST_MAX_HP } from '../src/combat/beastBrain.js';
 
 const START = { x: 0, z: -6, facing: 0 }; // +z（主人公の開始位置の方向）を向いている
 const front = (d) => ({ x: 0, z: -6 + d });
@@ -156,9 +156,9 @@ test('300ダメージでよろめき（2秒）、予告は消えて当たらな�
   expect(brain.takeDamage(250).stagger).toBe(false);
 });
 
-test('体力が800を切ると怒り状態。次の攻撃から予告が0.75倍（叩きつけ 0.675→0.7秒で下限）', () => {
-  const brain = createBeastBrain({ start: START });
-  for (let i = 0; i < 4; i++) brain.takeDamage(200); // 合計800 → 体力800、まだ
+test('体力が半分を切ると怒り状態。次の攻撃から予告が0.75倍（叩きつけ 0.675→0.7秒で下限）', () => {
+  const brain = createBeastBrain({ start: START, maxHp: 1600 });
+  for (let i = 0; i < 4; i++) brain.takeDamage(200); // 合計800 → 体力800（半分）、まだ
   expect(brain.update(0.01, front(4)).enraged).toBe(false);
   const r = brain.takeDamage(10);
   expect(r.enraged).toBe(true);
@@ -173,7 +173,7 @@ test('体力が800を切ると怒り状態。次の攻撃から予告が0.75倍�
 
 test('怒り状態では、突進のあとにもう一度突進（2回目も予告あり）', () => {
   for (let seed = 1; seed < 60; seed++) {
-    const brain = createBeastBrain({ start: START, seed });
+    const brain = createBeastBrain({ start: START, seed, maxHp: 1600 });
     brain.takeDamage(299);
     brain.takeDamage(299);
     brain.takeDamage(299);
@@ -191,7 +191,7 @@ test('怒り状態では、突進のあとにもう一度突進（2回目も予�
 
 test('体力0で dead。以後は攻撃しない。reset で最初に戻る', () => {
   const brain = createBeastBrain({ start: START });
-  const r = brain.takeDamage(1600);
+  const r = brain.takeDamage(BEAST_MAX_HP);
   expect(r.dead).toBe(true);
   for (let t = 0; t < 5; t += 0.05) {
     const f = brain.update(0.05, front(4));
@@ -200,7 +200,7 @@ test('体力0で dead。以後は攻撃しない。reset で最初に戻る', ()
   }
   brain.reset();
   const f = brain.update(0.01, front(4));
-  expect(f.hp).toBe(1600);
+  expect(f.hp).toBe(BEAST_MAX_HP);
   expect(f.phase).not.toBe('dead');
   expect(f.position).toEqual({ x: 0, z: -6 });
 });

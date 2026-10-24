@@ -1,5 +1,6 @@
 import { test, expect } from 'vitest';
 import { createBattle, decideOutcome, bodyColliders } from '../src/combat/battle.js';
+import { BEAST_MAX_HP } from '../src/combat/beastBrain.js';
 
 const noInput = { move: { x: 0, z: 0 }, run: false, attack: false, dodge: false, facing: Math.PI, lockOn: false };
 const nudge = { ...noInput, move: { x: 0.01, z: 0 } }; // 戦いを始めるための、ほぼ0の移動
@@ -130,7 +131,7 @@ test('予告の途中で reset すると、すべて最初に戻る（乱数の�
   expect(r.outcome).toBe('fighting');
   expect(r.time).toBe(0);
   expect(r.player.hp).toBe(100);
-  expect(r.beast.hp).toBe(1600);
+  expect(r.beast.hp).toBe(BEAST_MAX_HP);
   expect(r.beast.attack).toBeNull();
   expect(r.beast.position).toEqual({ x: 0, z: -6 });
 });
