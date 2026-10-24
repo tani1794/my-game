@@ -40,7 +40,7 @@ export function createHud(root) {
     <button class="round lock">${icons.crosshair}<span>ロック</span></button>
     <button class="round dodge">${icons.dodge}<span>回避</span></button>
 
-    <div class="logo">ECHO HUNT</div>
+    <div class="logo">OBLIVION ARENA</div>
     <div class="fps" hidden></div>
     <div class="notice rotate">横向きにしてください</div>
   `;
