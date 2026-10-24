@@ -85,3 +85,17 @@ test('読み込みに失敗しても、仮の体のまま動ける', async () =>
   expect(player.currentAnimation()).toBeNull();
   expect(() => player.update(0.016, run, 0, [], flat)).not.toThrow();
 });
+
+test('中身が空のキャラクターは読み込み失敗として扱い、仮の体のまま', async () => {
+  const player = createPlayer(new THREE.Scene());
+  await player.load('/models/knight.glb', async () => ({ scene: new THREE.Group(), animations: [] }));
+  expect(player.object.getObjectByName('placeholder').visible).toBe(true);
+});
+
+test('当たり判定の中に入り込んでいても、外へ向かう方向には動ける（後から読み込まれた木に閉じ込められない）', () => {
+  const tree = [{ x: 0, z: 0, radius: 0.5 }];
+  const out = stepPosition({ x: 0.2, z: 0 }, { x: 1, z: 0 }, 0.1, tree);
+  expect(out.x).toBeCloseTo(0.3);
+  const deeper = stepPosition({ x: 0.2, z: 0 }, { x: -1, z: 0 }, 0.1, tree);
+  expect(deeper.x).toBeCloseTo(0.2);
+});

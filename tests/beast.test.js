@@ -88,3 +88,10 @@ test('胴が長い獣は、前後にも当たり判定の円を並べて頭や�
   const zs = beast.colliders.map((c) => c.z);
   expect(Math.max(...zs) - Math.min(...zs)).toBeGreaterThan(5);
 });
+
+test('中身が空の獣モデルは、コードで作る獣に切り替え、当たり判定も正常な数値', async () => {
+  const scene = new THREE.Scene();
+  const beast = await createBeast(scene, '/models/beast.glb', flat, async () => ({ scene: new THREE.Group() }));
+  expect(beast.object.name).toBe('beast-fallback');
+  expect(beast.colliders.every((c) => Number.isFinite(c.x) && Number.isFinite(c.z) && Number.isFinite(c.radius))).toBe(true);
+});

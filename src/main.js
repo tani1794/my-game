@@ -150,10 +150,15 @@ function animate(now) {
   post.render();
 }
 
-window.addEventListener('resize', () => {
+function resize() {
   followCamera.resize(window.innerWidth, window.innerHeight);
   renderer.setSize(window.innerWidth, window.innerHeight);
   post.setSize(window.innerWidth, window.innerHeight);
-});
+}
+
+// iPhone の Safari は、アドレスバーの出入りで visualViewport だけが変わることがあるので両方を見る
+window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', resize);
+window.visualViewport?.addEventListener('resize', resize);
 
 requestAnimationFrame(animate);

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { loadGLTF, withFallback } from './assets.js';
+import { loadGLTF, measureModel, withFallback } from './assets.js';
 
 const WALK_SPEED = 3;
 const RUN_SPEED = 6;
@@ -18,11 +18,16 @@ export function speedFor({ moveX, moveZ, run }) {
   return WALK_SPEED * Math.min(1, Math.hypot(moveX, moveZ));
 }
 
-function canMove(x, z, colliders, bound) {
+// 当たり判定の外へ出る移動は許す。すでに中に入り込んでいる場合（後から読み込まれた木など）は、
+// 中心から遠ざかる移動だけ許して、閉じ込められないようにする
+function canMove(fromX, fromZ, x, z, colliders, bound) {
   if (Math.abs(x) > bound || Math.abs(z) > bound) return false;
 
   return colliders.every((collider) => {
-    return Math.hypot(x - collider.x, z - collider.z) > collider.radius + PLAYER_RADIUS;
+    const limit = collider.radius + PLAYER_RADIUS;
+    const after = Math.hypot(x - collider.x, z - collider.z);
+    if (after > limit) return true;
+    return after > Math.hypot(fromX - collider.x, fromZ - collider.z);
   });
 }
 
@@ -31,10 +36,10 @@ export function stepPosition(pos, dir, distance, colliders, bound = 28) {
   let { x, z } = pos;
 
   const nextX = x + dir.x * distance;
-  if (canMove(nextX, z, colliders, bound)) x = nextX;
+  if (canMove(x, z, nextX, z, colliders, bound)) x = nextX;
 
   const nextZ = z + dir.z * distance;
-  if (canMove(x, nextZ, colliders, bound)) z = nextZ;
+  if (canMove(x, z, x, nextZ, colliders, bound)) z = nextZ;
 
   return { x, z };
 }
@@ -103,8 +108,8 @@ export function createPlayer(scene) {
     const character = gltf.scene;
     character.name = 'character';
 
-    const box = new THREE.Box3().setFromObject(character);
-    character.scale.setScalar(PLAYER_HEIGHT / (box.max.y - box.min.y));
+    const { box, size } = measureModel(character);
+    character.scale.setScalar(PLAYER_HEIGHT / size.y);
     character.position.y = -box.min.y * character.scale.y;
 
     character.traverse((part) => {
@@ -125,8 +130,11 @@ export function createPlayer(scene) {
   }
 
   async function load(url, loader = loadGLTF) {
-    const gltf = await withFallback(loader(url), () => null);
-    if (gltf) setupCharacter(gltf);
+    // 中身が空のモデルも、仮の体のまま続ける（measureModel が throw する）
+    await withFallback(
+      loader(url).then((gltf) => setupCharacter(gltf)),
+      () => null,
+    );
   }
 
   function update(dt, input, yaw, colliders, heightAt) {

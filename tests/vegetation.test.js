@@ -77,3 +77,9 @@ test('木は幹ごとに半径0.5、岩は大きさに応じた当たり判定�
   const rocks = vegetation.colliders.slice(layout.trees.length);
   expect(rocks.every((c) => c.radius > 0.4 && c.radius < 2)).toBe(true);
 });
+
+test('中身が空の木や岩のモデルは置かず、当たり判定も作らない', async () => {
+  const scene = new THREE.Scene();
+  const vegetation = await createVegetation(scene, preset, flat, async () => ({ scene: new THREE.Group() }));
+  expect(vegetation.colliders).toEqual([]);
+});

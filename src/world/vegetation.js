@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { loadGLTF, withFallback } from '../assets.js';
+import { loadGLTF, measureModel, withFallback } from '../assets.js';
 import { mulberry32 } from './random.js';
 import { distanceToPath, isOnPath } from './terrain.js';
 
@@ -183,7 +183,15 @@ function instanceModel(model, placements, heightAt, sizeOf, name) {
 
 export async function createVegetation(scene, preset, heightAt, load = loadGLTF) {
   const layout = placeVegetation();
-  const tryLoad = (url) => withFallback(load(url).then((gltf) => gltf.scene), () => null);
+  // 読めない・中身が空のモデルは null にして、その種類は置かない
+  const tryLoad = (url) =>
+    withFallback(
+      load(url).then((gltf) => {
+        measureModel(gltf.scene);
+        return gltf.scene;
+      }),
+      () => null,
+    );
 
   const [treeModels, rockModels, flowerModel] = await Promise.all([
     Promise.all(TREE_MODELS.map(tryLoad)),

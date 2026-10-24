@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { loadGLTF, withFallback } from '../assets.js';
+import { loadGLTF, measureModel, withFallback } from '../assets.js';
 import { mulberry32 } from './random.js';
 
 const BEAST_X = 0;
@@ -70,8 +70,7 @@ function setupModel(model, heightAt) {
   const pivot = new THREE.Group();
   pivot.name = 'beast';
 
-  const box = new THREE.Box3().setFromObject(model);
-  const size = box.getSize(new THREE.Vector3());
+  const { box, size } = measureModel(model);
   const scale = BEAST_HEIGHT / size.y;
 
   model.scale.setScalar(scale);
