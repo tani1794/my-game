@@ -6,6 +6,7 @@ import { createTerrain } from './world/terrain.js';
 import { createLighting } from './world/lighting.js';
 import { createRuins } from './world/ruins.js';
 import { createPost } from './world/post.js';
+import { createEffects } from './world/effects.js';
 import { QUALITY_PRESETS, resolveQuality, createAutoDowngrade } from './quality.js';
 import { createStick } from './ui/stick.js';
 import { createHud } from './ui/hud.js';
@@ -41,6 +42,7 @@ const followCamera = createFollowCamera(canvas);
 const quality = resolveQuality(window.location.search);
 const autoDowngrade = quality.locked ? null : createAutoDowngrade(quality.tier);
 const post = createPost(renderer, scene, followCamera.camera, QUALITY_PRESETS[quality.tier]);
+const effects = createEffects(scene, QUALITY_PRESETS[quality.tier], BEAST_POSITION);
 
 function applyQuality(preset) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, preset.pixelRatio));
@@ -102,6 +104,7 @@ function animate(now) {
 
   player.update(dt, input.read(), followCamera.yaw(), colliders, terrain.heightAt);
   ruins.update(now / 1000);
+  effects.update(dt, now / 1000, player.object.position);
   lighting.update(player.object.position);
   followCamera.update(player.object.position);
   minimap.draw(
