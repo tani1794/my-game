@@ -66,6 +66,19 @@ export function createHud(root) {
   });
 
   const fps = hud.querySelector('.fps');
+  const hpBar = hud.querySelector('.bar.hp span');
+  const staminaBar = hud.querySelector('.bar.stamina span');
+  const questCount = hud.querySelector('.quest .count');
+
+  // 体力とスタミナ（どちらも 0〜100）
+  function setVitals(hp, stamina) {
+    hpBar.style.width = `${Math.max(0, Math.min(100, hp))}%`;
+    staminaBar.style.width = `${Math.max(0, Math.min(100, stamina))}%`;
+  }
+
+  function setQuest(done) {
+    questCount.textContent = done ? '1 / 1' : '0 / 1';
+  }
 
   function setFps(text) {
     fps.hidden = text === null;
@@ -86,5 +99,7 @@ export function createHud(root) {
     minimapCanvas: hud.querySelector('.minimap'),
     setFps,
     showNotice,
+    setVitals,
+    setQuest,
   };
 }
