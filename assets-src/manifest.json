@@ -56,7 +56,16 @@
     "keepAnimations": [
       "Idle",
       "Walking_A",
-      "Running_A"
+      "Running_A",
+      "1H_Melee_Attack_Slice_Diagonal",
+      "1H_Melee_Attack_Slice_Horizontal",
+      "1H_Melee_Attack_Chop",
+      "Dodge_Forward",
+      "Dodge_Backward",
+      "Dodge_Left",
+      "Dodge_Right",
+      "Hit_A",
+      "Death_A"
     ],
     "removeNodes": [
       "1H_Sword_Offhand",
