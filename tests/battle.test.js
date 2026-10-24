@@ -143,3 +143,15 @@ test('長いフレーム（5秒）を1回渡しても、予告が一気に終わ
   expect(r.player.hp).toBe(100);
   expect(r.time).toBeLessThanOrEqual(0.07);
 });
+
+test('倒した後も、結晶獣が崩れ落ちる動きは最後まで進む（当たりは出ない）', () => {
+  const battle = createBattle({ beastHp: 10 });
+  const pos = { x: 0, z: 0.5 };
+  step(battle, 0.01, pos, { attack: true });
+  runUntil(battle, pos, (r) => r.outcome === 'won', 2);
+  let last;
+  for (let t = 0; t < 2; t += 0.05) last = step(battle, 0.05, pos);
+  expect(last.beast.cue).toMatchObject({ kind: 'death' });
+  expect(last.beast.cue.t).toBeCloseTo(1);
+  expect(last.beast.strikes).toHaveLength(0);
+});

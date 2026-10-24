@@ -89,8 +89,9 @@ export function createBattle({ seed = 1, beastHp, playerHp } = {}) {
       }
     }
 
-    // ── 結晶獣：戦いが始まるまで、決着の後は動かさない ──
+    // ── 結晶獣：戦いが始まるまでは動かさない。負けた後は止める。勝った後は崩れ落ちる動きだけ進める ──
     let beast = lastBeast;
+    if (started && outcome === 'won') beast = brain.update(dt, playerPos);
     if (started && outcome === 'fighting') {
       beast = brain.update(dt, playerPos);
       if (beast.phase === 'telegraph' && lastPhase !== 'telegraph') rainHits = 0;
