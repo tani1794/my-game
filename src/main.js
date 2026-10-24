@@ -5,6 +5,7 @@ import { createFollowCamera } from './camera.js';
 import { createTerrain } from './world/terrain.js';
 import { createLighting } from './world/lighting.js';
 import { QUALITY_PRESETS, resolveQuality, createAutoDowngrade } from './quality.js';
+import { createStick } from './ui/stick.js';
 
 // ── 画面と操作ボタン ──
 document.querySelector('#app').innerHTML = `
@@ -16,12 +17,7 @@ document.querySelector('#app').innerHTML = `
     <span>画面をドラッグしてカメラを回転</span>
   </div>
 
-  <div id="pad">
-    <button data-key="up" class="up">▲</button>
-    <button data-key="left" class="left">◀</button>
-    <button data-key="down" class="down">▼</button>
-    <button data-key="right" class="right">▶</button>
-  </div>
+  <div id="stick"></div>
 
   <button id="run">走る</button>
 `;
@@ -57,19 +53,12 @@ style.textContent = `
     -webkit-touch-callout: none;
   }
   button.active { background: #2389aa; }
-  #pad {
+  #stick {
     position: fixed;
-    left: max(20px, env(safe-area-inset-left));
-    bottom: max(20px, env(safe-area-inset-bottom));
-    display: grid;
-    grid-template-columns: repeat(3, 54px);
-    grid-template-rows: repeat(3, 54px);
-    gap: 5px;
+    left: max(28px, env(safe-area-inset-left));
+    bottom: max(24px, env(safe-area-inset-bottom));
+    width: 150px; height: 150px;
   }
-  .up { grid-area: 1 / 2; }
-  .left { grid-area: 2 / 1; }
-  .down { grid-area: 2 / 2; }
-  .right { grid-area: 2 / 3; }
   #run {
     position: fixed;
     right: max(24px, env(safe-area-inset-right));
@@ -142,13 +131,12 @@ canvas.addEventListener('webglcontextlost', (event) => {
 });
 
 const input = createInput();
-document.querySelectorAll('[data-key]').forEach((button) => {
-  input.bindButton(button, button.dataset.key);
-});
+const stick = createStick(document.querySelector('#stick'), input.setStick);
 input.bindButton(document.querySelector('#run'), 'run');
 
 function clearInput() {
   input.clear();
+  stick.reset();
   followCamera.clear();
   autoDowngrade?.reset();
 }
