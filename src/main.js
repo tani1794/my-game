@@ -4,6 +4,7 @@ import { createPlayer } from './player.js';
 import { createFollowCamera } from './camera.js';
 import { createTerrain } from './world/terrain.js';
 import { createLighting } from './world/lighting.js';
+import { createRuins } from './world/ruins.js';
 import { QUALITY_PRESETS, resolveQuality, createAutoDowngrade } from './quality.js';
 import { createStick } from './ui/stick.js';
 import { createHud } from './ui/hud.js';
@@ -30,6 +31,8 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 const scene = new THREE.Scene();
 const lighting = createLighting(scene);
 const terrain = createTerrain(scene);
+const ruins = createRuins(scene, terrain.heightAt);
+const colliders = [...terrain.colliders, ...ruins.colliders];
 const player = createPlayer(scene);
 const followCamera = createFollowCamera(canvas);
 
@@ -94,7 +97,8 @@ function animate(now) {
   }
   if (quality.debug) updateFps(rawDt);
 
-  player.update(dt, input.read(), followCamera.yaw(), terrain.colliders, terrain.heightAt);
+  player.update(dt, input.read(), followCamera.yaw(), colliders, terrain.heightAt);
+  ruins.update(now / 1000);
   lighting.update(player.object.position);
   followCamera.update(player.object.position);
   minimap.draw(
