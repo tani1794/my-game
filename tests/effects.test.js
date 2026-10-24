@@ -22,12 +22,12 @@ function countPoints(scene) {
 // Required tests
 // --------------------------------------------------
 
-test('通常画質は 60 + 150 粒', () => {
+test('通常画質は 土ぼこり360 + 光150 粒', () => {
   const scene = new THREE.Scene();
 
   createEffects(scene, high, beast);
 
-  expect(countPoints(scene)).toBe(210);
+  expect(countPoints(scene)).toBe(510);
 });
 
 test('低画質は半分', () => {
@@ -35,7 +35,7 @@ test('低画質は半分', () => {
 
   createEffects(scene, low, beast);
 
-  expect(countPoints(scene)).toBe(105);
+  expect(countPoints(scene)).toBe(255);
 });
 
 test('update を呼んでもエラーにならず、粒が動く', () => {
@@ -102,10 +102,11 @@ test('土ぼこりの範囲・色・サイズ・属性が正しい', () => {
   const pos = dust.geometry.getAttribute('position');
   const fade = dust.geometry.getAttribute('aFade');
 
-  expect(pos.count).toBe(60);
-  expect(fade.count).toBe(60);
+  expect(pos.count).toBe(360);
+  expect(fade.count).toBe(360);
 
-  expect(dust.material.size).toBeCloseTo(0.25);
+  // 丸い粒が蛍に見えないよう、小さく
+  expect(dust.material.size).toBeLessThanOrEqual(0.08);
   expect(dust.material.sizeAttenuation).toBe(true);
   expect(dust.material.transparent).toBe(true);
 
@@ -115,23 +116,29 @@ test('土ぼこりの範囲・色・サイズ・属性が正しい', () => {
     )
   ).toBe(true);
 
+  // 獣の前足（獣の位置から +z へ 3m）に集める
   expect(dust.position.x).toBe(beast.x);
-  expect(dust.position.z).toBe(beast.z);
+  expect(dust.position.z).toBe(beast.z + 3);
 
+  let nearCenter = 0;
   for (let i = 0; i < pos.count; i++) {
     const radius = Math.hypot(
       pos.getX(i),
       pos.getZ(i)
     );
 
-    expect(radius).toBeLessThanOrEqual(3.00001);
+    expect(radius).toBeLessThanOrEqual(2.20001);
+    if (radius < 1.1) nearCenter++;
 
     expect(pos.getY(i)).toBeGreaterThanOrEqual(0);
-    expect(pos.getY(i)).toBeLessThan(2);
+    expect(pos.getY(i)).toBeLessThan(1.2);
 
     expect(fade.getX(i)).toBeGreaterThanOrEqual(0);
     expect(fade.getX(i)).toBeLessThanOrEqual(1);
   }
+
+  // 中心ほど密集させる（半径の内側半分に、半分より多くの粒）
+  expect(nearCenter).toBeGreaterThan(pos.count / 2);
 });
 
 test('土ぼこりは上昇し、薄くなり、上限で再出現する', () => {
@@ -149,7 +156,7 @@ test('土ぼこりは上昇し、薄くなり、上限で再出現する', () =>
     const pos = dust.geometry.getAttribute('position');
     const fade = dust.geometry.getAttribute('aFade');
 
-    expect(pos.getY(0)).toBeCloseTo(1);
+    expect(pos.getY(0)).toBeCloseTo(0.6);
 
     const initialAlpha = fade.getX(0);
 
@@ -159,7 +166,7 @@ test('土ぼこりは上昇し、薄くなり、上限で再出現する', () =>
       { x: 0, y: 0, z: 0 }
     );
 
-    expect(pos.getY(0)).toBeCloseTo(1.5);
+    expect(pos.getY(0)).toBeCloseTo(1.1);
 
     expect(
       fade.getX(0)
@@ -171,7 +178,7 @@ test('土ぼこりは上昇し、薄くなり、上限で再出現する', () =>
       { x: 0, y: 0, z: 0 }
     );
 
-    expect(pos.getY(0)).toBeCloseTo(0.5);
+    expect(pos.getY(0)).toBeCloseTo(0.9);
     expect(fade.getX(0)).toBeGreaterThan(0);
 
     expect(pos.version).toBeGreaterThan(0);
@@ -207,7 +214,7 @@ test('土ぼこりは結晶獣の移動を追う', () => {
   const dust = scene.getObjectByName('effects-dust');
 
   expect(dust.position.x).toBe(5);
-  expect(dust.position.z).toBe(-2);
+  expect(dust.position.z).toBe(1);
 });
 
 // --------------------------------------------------
@@ -233,6 +240,9 @@ test('光の粒は加算合成で、深度書き込みをしない', () => {
       new THREE.Color('#ffe2a8')
     )
   ).toBe(true);
+
+  // 大きな光の玉は蛍に見えるので、小さく
+  expect(light.material.size).toBeLessThanOrEqual(0.07);
 });
 
 test('光の粒は中心の20m以内に留まり、高さは0.5〜4m', () => {

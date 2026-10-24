@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 
-const DUST_RADIUS = 3;
-const DUST_HEIGHT = 2;
+const DUST_RADIUS = 2.2;
+const DUST_HEIGHT = 1.2;
+// 土ぼこりは獣の前足のあたり（獣の位置から前 = +z へ 3m）に集める
+const DUST_FORWARD = 3;
 const LIGHT_RADIUS = 20;
 const TWO_PI = Math.PI * 2;
 
@@ -71,8 +73,9 @@ function makeDust(count, beastPos) {
 
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * TWO_PI;
+    // 中心ほど密集させる（random の累乗で、小さい半径が出やすくする）
     const radius =
-      DUST_RADIUS * Math.sqrt(Math.random());
+      DUST_RADIUS * Math.random() ** 1.5;
 
     const height = Math.random() * DUST_HEIGHT;
     const offset = i * 3;
@@ -110,10 +113,10 @@ function makeDust(count, beastPos) {
   const material = makeRound(
     new THREE.PointsMaterial({
       color: '#c8a477',
-      size: 0.25,
+      size: 0.08,
       sizeAttenuation: true,
       transparent: true,
-      opacity: 0.55,
+      opacity: 0.75,
       depthWrite: false,
     }),
     true
@@ -129,7 +132,7 @@ function makeDust(count, beastPos) {
   points.position.set(
     beastPos.x,
     0,
-    beastPos.z
+    beastPos.z + DUST_FORWARD
   );
 
   // Avoid stale geometry bounds during animation.
@@ -138,7 +141,7 @@ function makeDust(count, beastPos) {
   function update(dt) {
     // Follow the beast if beastPos is modified.
     points.position.x = beastPos.x;
-    points.position.z = beastPos.z;
+    points.position.z = beastPos.z + DUST_FORWARD;
 
     if (dt <= 0) return;
 
@@ -202,10 +205,11 @@ function makeLight(count) {
   const material = makeRound(
     new THREE.PointsMaterial({
       color: '#ffe2a8',
-      size: 0.18,
+      // 大きな光の玉は蛍に見えるので、小さな光の粒にする
+      size: 0.06,
       sizeAttenuation: true,
       transparent: true,
-      opacity: 0.38,
+      opacity: 0.6,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     }),
@@ -312,7 +316,7 @@ export function createEffects(scene, preset, beastPos) {
   const lowQuality = preset?.bloom === false;
 
   const dust = makeDust(
-    lowQuality ? 30 : 60,
+    lowQuality ? 180 : 360,
     beastPos
   );
 
