@@ -5,6 +5,7 @@ import { createFollowCamera } from './camera.js';
 import { createTerrain } from './world/terrain.js';
 import { createLighting } from './world/lighting.js';
 import { createRuins } from './world/ruins.js';
+import { createPost } from './world/post.js';
 import { QUALITY_PRESETS, resolveQuality, createAutoDowngrade } from './quality.js';
 import { createStick } from './ui/stick.js';
 import { createHud } from './ui/hud.js';
@@ -29,7 +30,7 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(window.innerWidth, window.innerHeight);
 
 const scene = new THREE.Scene();
-const lighting = createLighting(scene);
+const lighting = createLighting(scene, renderer);
 const terrain = createTerrain(scene);
 const ruins = createRuins(scene, terrain.heightAt);
 const colliders = [...terrain.colliders, ...ruins.colliders];
@@ -39,10 +40,12 @@ const followCamera = createFollowCamera(canvas);
 // ── 画質：URLで固定されていなければ、fpsを見て自動で下げる ──
 const quality = resolveQuality(window.location.search);
 const autoDowngrade = quality.locked ? null : createAutoDowngrade(quality.tier);
+const post = createPost(renderer, scene, followCamera.camera, QUALITY_PRESETS[quality.tier]);
 
 function applyQuality(preset) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, preset.pixelRatio));
   lighting.setQuality(preset);
+  post.setQuality(preset);
 }
 
 applyQuality(QUALITY_PRESETS[quality.tier]);
@@ -109,12 +112,13 @@ function animate(now) {
     },
     BEAST_POSITION,
   );
-  renderer.render(scene, followCamera.camera);
+  post.render();
 }
 
 window.addEventListener('resize', () => {
   followCamera.resize(window.innerWidth, window.innerHeight);
   renderer.setSize(window.innerWidth, window.innerHeight);
+  post.setSize(window.innerWidth, window.innerHeight);
 });
 
 requestAnimationFrame(animate);

@@ -63,6 +63,9 @@ export function createPlayer(scene) {
   front.position.set(0, 1.6, 0.25);
   object.add(front);
 
+  object.traverse((part) => {
+    part.castShadow = true;
+  });
   scene.add(object);
 
   function update(dt, input, yaw, colliders, heightAt) {

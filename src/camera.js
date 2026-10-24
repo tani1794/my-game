@@ -6,7 +6,7 @@ export function createFollowCamera(canvas) {
     55,
     window.innerWidth / window.innerHeight,
     0.1,
-    100,
+    200,
   );
 
   let yaw = 0;

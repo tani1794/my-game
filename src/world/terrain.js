@@ -14,6 +14,7 @@ export function createTerrain(scene) {
     }),
   );
   ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
   scene.add(ground);
 
   const grid = new THREE.GridHelper(60, 30, 0x608b88, 0x405e59);
@@ -34,6 +35,8 @@ export function createTerrain(scene) {
 
     const rock = new THREE.Mesh(rockGeometry, rockMaterial);
     rock.scale.set(radius, radius * 1.4, radius);
+    rock.castShadow = true;
+    rock.receiveShadow = true;
     rock.position.set(
       Math.cos(angle) * distance,
       radius * 0.8,
