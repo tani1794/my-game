@@ -46,5 +46,25 @@
     "out": "public/models/nature/flower_purple.glb",
     "textureSize": 1024,
     "simplifyRatio": 1
+  },
+  {
+    "src": "assets-src/packs/kaykit/Knight.glb",
+    "out": "public/models/knight.glb",
+    "textureSize": 1024,
+    "simplifyRatio": 1,
+    "keepNodes": true,
+    "keepAnimations": [
+      "Idle",
+      "Walking_A",
+      "Running_A"
+    ],
+    "removeNodes": [
+      "1H_Sword_Offhand",
+      "Badge_Shield",
+      "Rectangle_Shield",
+      "Round_Shield",
+      "Spike_Shield",
+      "2H_Sword"
+    ]
   }
 ]

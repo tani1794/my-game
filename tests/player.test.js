@@ -24,3 +24,64 @@ test('岩に正面からぶつかると止まり、斜めなら壁沿いに滑�
 test('移動範囲 28 の外には出ない', () => {
   expect(stepPosition({ x: 27.9, z: 0 }, { x: 1, z: 0 }, 1, []).x).toBe(27.9);
 });
+
+// ── 主人公のキャラクター（Task 10） ──
+import * as THREE from 'three';
+import { createPlayer } from '../src/player.js';
+
+const still = { moveX: 0, moveZ: 0, run: false };
+const walk = { moveX: 0, moveZ: 0.5, run: false };
+const run = { moveX: 0, moveZ: 1, run: true };
+const flat = () => 0;
+
+// 高さ2.4の箱を「キャラクター」の代わりにし、3つのアニメーションを持たせる
+function fakeKnight() {
+  const scene = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1, 2.4, 1), new THREE.MeshStandardMaterial());
+  body.name = 'Knight_Body';
+  body.position.y = 1.2;
+  const cape = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.1), new THREE.MeshStandardMaterial());
+  cape.name = 'Knight_Cape';
+  scene.add(body, cape);
+  const animations = ['Idle', 'Walking_A', 'Running_A'].map((name) => new THREE.AnimationClip(name, 1, []));
+  return { scene, animations };
+}
+
+function heightOf(object) {
+  object.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(object);
+  return box.max.y - box.min.y;
+}
+
+test('キャラクターを読み込むと、身長1.8mにそろえて仮の体を隠す', async () => {
+  const player = createPlayer(new THREE.Scene());
+  await player.load('/models/knight.glb', async () => fakeKnight());
+  expect(player.object.getObjectByName('placeholder').visible).toBe(false);
+  expect(heightOf(player.object.getObjectByName('character'))).toBeCloseTo(1.8, 1);
+});
+
+test('止まっていれば待機、ゆっくりなら歩き、速ければ走り', async () => {
+  const player = createPlayer(new THREE.Scene());
+  await player.load('/models/knight.glb', async () => fakeKnight());
+  player.update(0.016, still, 0, [], flat);
+  expect(player.currentAnimation()).toBe('Idle');
+  player.update(0.016, walk, 0, [], flat);
+  expect(player.currentAnimation()).toBe('Walking_A');
+  player.update(0.016, run, 0, [], flat);
+  expect(player.currentAnimation()).toBe('Running_A');
+});
+
+test('マントを青く染める', async () => {
+  const player = createPlayer(new THREE.Scene());
+  await player.load('/models/knight.glb', async () => fakeKnight());
+  const cape = player.object.getObjectByName('Knight_Cape');
+  expect(cape.material.color.b).toBeGreaterThan(cape.material.color.r);
+});
+
+test('読み込みに失敗しても、仮の体のまま動ける', async () => {
+  const player = createPlayer(new THREE.Scene());
+  await player.load('/missing.glb', async () => { throw new Error('404'); });
+  expect(player.object.getObjectByName('placeholder').visible).toBe(true);
+  expect(player.currentAnimation()).toBeNull();
+  expect(() => player.update(0.016, run, 0, [], flat)).not.toThrow();
+});
