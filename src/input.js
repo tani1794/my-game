@@ -12,10 +12,20 @@ const keyMap = {
   ShiftRight: 'run',
 };
 
+// キーボードとスティックの入力を足し、斜めでも速くならないよう長さを1で頭打ちにする
+export function combineMove(keyboard, stick) {
+  const x = keyboard.x + stick.x;
+  const z = keyboard.z + stick.z;
+  const length = Math.hypot(x, z);
+  if (length <= 1) return { x, z };
+  return { x: x / length, z: z / length };
+}
+
 export function createInput() {
   const keys = new Set();
   const touches = new Map();
   const buttons = new Set();
+  let stick = { x: 0, z: 0 };
 
   window.addEventListener('keydown', (event) => {
     if (keyMap[event.code]) {
@@ -57,19 +67,27 @@ export function createInput() {
     button.addEventListener('lostpointercapture', release);
   }
 
+  function setStick(value) {
+    stick = value;
+  }
+
   function read() {
-    return {
-      moveX: Number(held('right')) - Number(held('left')),
-      moveZ: Number(held('up')) - Number(held('down')),
-      run: held('run'),
-    };
+    const move = combineMove(
+      {
+        x: Number(held('right')) - Number(held('left')),
+        z: Number(held('up')) - Number(held('down')),
+      },
+      stick,
+    );
+    return { moveX: move.x, moveZ: move.z, run: held('run') };
   }
 
   function clear() {
     keys.clear();
     touches.clear();
+    stick = { x: 0, z: 0 };
     buttons.forEach((button) => button.classList.remove('active'));
   }
 
-  return { read, bindButton, clear };
+  return { read, bindButton, setStick, clear };
 }
