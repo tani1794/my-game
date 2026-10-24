@@ -142,10 +142,11 @@ html, body, #app {
   background: #2c3e52e6;
 }
 
+/* 走るは右手側：攻撃ボタンの真上 */
 .run {
   width: var(--run); height: var(--run);
-  left: calc(var(--edge) + 12px + var(--stick) + 14px + env(safe-area-inset-left));
-  bottom: calc(var(--edge) + env(safe-area-inset-bottom));
+  right: calc(var(--edge) + var(--sub-button) + 14px + (var(--attack) - var(--run)) / 2 + env(safe-area-inset-right));
+  bottom: calc(var(--edge) + 18px + var(--attack) + 12px + env(safe-area-inset-bottom));
 }
 
 /* ── 右下：攻撃・回避・ロック ── */
@@ -169,17 +170,18 @@ html, body, #app {
 }
 
 /* ── 下中央：ロゴ ── */
+/* 画面の一番下に小さく置き、ゲーム画面を広く見せる */
 .logo {
   position: absolute; left: 50%;
-  bottom: calc(6px + env(safe-area-inset-bottom));
+  bottom: 2px;
   transform: translateX(-50%);
-  display: flex; align-items: center; gap: 10px;
-  font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 0.35em;
-  color: #e8e2d0cc; white-space: nowrap;
+  display: flex; align-items: center; gap: 6px;
+  font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: 0.3em;
+  color: #e8e2d099; white-space: nowrap;
 }
 
 .logo::before, .logo::after {
-  content: ''; width: 48px; height: 1px;
+  content: ''; width: 24px; height: 1px;
   background: linear-gradient(90deg, transparent, var(--gold));
 }
 
@@ -228,5 +230,4 @@ html, body, #app {
   .round { font-size: 10px; --icon: 22px; }
   .attack { --icon: 36px; }
   .run { --icon: 20px; }
-  .logo { font-size: 11px; }
 }
