@@ -26,7 +26,9 @@ const CHARGE = { width: 4, maxLength: 14, overshoot: 4, speed: 14 / 0.9 };
 const RAIN = { count: 5, radius: 1.6, scatter: 3, spacing: 2.4, interval: 0.15 };
 const CUE_TIME = { slam: 0.5, spin: 0.6, rain: RAIN.interval * (RAIN.count - 1) + IMPACT_TIME };
 
-export function createBeastBrain({ seed = 1, start = { x: 0, z: -6, facing: 0 }, bounds = 13 } = {}) {
+export function createBeastBrain({ seed = 1, start = { x: 0, z: -6, facing: 0 }, bounds = 13, maxHp = MAX_HP } = {}) {
+  // 怒り状態は体力が半分を切ったとき（既定の1600なら800）
+  const enrageBelow = maxHp * (ENRAGE_BELOW / MAX_HP);
   let random;
   let position;
   let facing;
@@ -44,7 +46,7 @@ export function createBeastBrain({ seed = 1, start = { x: 0, z: -6, facing: 0 },
     random = mulberry32(options.seed ?? seed);
     position = { x: start.x, z: start.z };
     facing = start.facing;
-    hp = MAX_HP;
+    hp = maxHp;
     enraged = false;
     phase = 'idle';
     timer = 0;
@@ -240,6 +242,7 @@ export function createBeastBrain({ seed = 1, start = { x: 0, z: -6, facing: 0 },
       facing,
       attack: shownAttack,
       strikes,
+      strikeKind: strikes.length > 0 ? attack.kind : null,
       cue,
       enraged,
       hp,
@@ -267,7 +270,7 @@ export function createBeastBrain({ seed = 1, start = { x: 0, z: -6, facing: 0 },
       return { stagger: false, enraged: false, dead: true };
     }
 
-    const newlyEnraged = !enraged && hp < ENRAGE_BELOW;
+    const newlyEnraged = !enraged && hp < enrageBelow;
     if (newlyEnraged) enraged = true;
 
     staggerAccum += amount;

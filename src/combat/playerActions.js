@@ -39,7 +39,7 @@ function dodgeAnimation(facing, direction) {
 
 const once = (name) => ({ name, loop: false, timeScale: 1 });
 
-export function createPlayerActions() {
+export function createPlayerActions({ maxHp = MAX_HP } = {}) {
   let hp;
   let stamina;
   let sinceStaminaUse;
@@ -54,7 +54,7 @@ export function createPlayerActions() {
   let dodge; // { x, z, face, animation }
 
   function reset() {
-    hp = MAX_HP;
+    hp = maxHp;
     stamina = MAX_STAMINA;
     sinceStaminaUse = REGEN_DELAY;
     mode = 'free';
@@ -227,5 +227,5 @@ export function createPlayerActions() {
   }
 
   reset();
-  return { update, takeHit, reset };
+  return { update, takeHit, reset, hp: () => hp };
 }
