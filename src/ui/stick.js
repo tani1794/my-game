@@ -1,5 +1,5 @@
 /**
- * ECHO HUNT - Virtual Analog Stick
+ * OBLIVION ARENA - Virtual Analog Stick
  * Dependencies: none
  */
 

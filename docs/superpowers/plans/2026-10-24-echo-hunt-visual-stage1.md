@@ -1,4 +1,4 @@
-# ECHO HUNT 第1段階：ビジュアル再現 実装計画
+# OBLIVION ARENA 第1段階：ビジュアル再現 実装計画
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -259,12 +259,12 @@ test('clear() でスティックの入力も消える', () => {
   アイコンは SVG を直接書く。押したときは `.active` で少し縮めて明るくする。英字は Cinzel、日本語は `system-ui`。すべての要素の位置に `env(safe-area-inset-*)` を足す
 - [ ] **Step 3:** 縦向きのときは `@media (orientation: portrait)` で全面を覆い、「横向きにしてください」と表示する
 - [ ] **Step 4:** `index.html` を変更する
-  - `lang="ja"`、`<title>ECHO HUNT</title>`
+  - `lang="ja"`、`<title>OBLIVION ARENA</title>`
   - viewport に `viewport-fit=cover` を追加
   - `apple-mobile-web-app-capable` を `yes`、`apple-mobile-web-app-status-bar-style` を `black-translucent`
   - manifest と apple-touch-icon へのリンク
 
-  manifest の内容は `name: "ECHO HUNT"`、`display: "fullscreen"`、`orientation: "landscape"`、`background_color: "#101b26"`
+  manifest の内容は `name: "OBLIVION ARENA"`、`display: "fullscreen"`、`orientation: "landscape"`、`background_color: "#101b26"`
 - [ ] **Step 5:** `ASSETS.md` を作る。表の列は「素材 | 入手元URL | ライセンス | 使用ファイル」。Cinzel（OFL）と顔アイコン（自作のコンセプト画像）を記録する
 - [ ] **Step 6:** `npm test` を実行し、既存のテストが PASS することを確認する。iPhone で開き、UI がノッチやホームバーに重ならないこと、縦向きで案内が出ること、ホーム画面に追加すると全画面で起動することを確認する
 - [ ] **Step 7: コミット** `git commit -m "feat: add HUD matching concept layout"`

@@ -3,7 +3,7 @@
 # 依頼：ブラウザゲームのアナログスティック部品を作ってください
 
 ## 前提
-- スマホ（iPhone 14 の Safari、横向き）向けの3Dアクションゲーム「ECHO HUNT」を作っています
+- スマホ（iPhone 14 の Safari、横向き）向けの3Dアクションゲーム「OBLIVION ARENA」を作っています
 - 技術：Vite 8、three.js 0.186、素の JavaScript（ES modules）。TypeScript は使いません
 - テスト：Vitest 5
 - このファイルは three.js にも、ほかのファイルにも依存させないでください。**新しいライブラリも追加しないでください**
