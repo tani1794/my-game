@@ -19,6 +19,107 @@ export function cameraPose(target, yaw, pitch, distance, shoulder) {
   return { position, lookAt };
 }
 
+const DRAG_YAW = 0.006;
+const DRAG_PITCH = 0.004;
+const PITCH_MIN = 0.05;
+const PITCH_MAX = 0.9;
+const LOCK_TURN_SPEED = Math.PI; // 1秒に180度
+const LOOK_AROUND = Math.PI / 6; // ロック中の見回しは左右30度まで
+const LOOK_RETURN_SPEED = LOOK_AROUND / 0.5; // 指を離すと0.5秒で戻る
+const LAG_TIME = 0.07; // 回避中の遅れ（約0.2秒で追いつく）
+const SHAKE_TIME = 0.2;
+const SHAKE_AMOUNT = 0.15;
+
+// 主人公の後ろから結晶獣を見る yaw（カメラは主人公から見て結晶獣の反対側）
+export function lockYaw(player, beast) {
+  return Math.atan2(player.x - beast.x, player.z - beast.z);
+}
+
+const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+
+// 画面や指に依存しないカメラの動き：自由視点、ロックオン、見回し、揺れ、遅れ
+export function createCameraRig() {
+  let yaw = 0;
+  let pitch = 0.14;
+  let lookOffset = 0;
+  let dragging = false;
+  let lock = null;
+  let lag = false;
+  let shakeLeft = 0;
+  let shakeStrength = 0;
+  let shakeTime = 0;
+  const follow = new THREE.Vector3();
+  let hasFollow = false;
+
+  function drag(dx, dy) {
+    dragging = true;
+    if (lock) lookOffset = THREE.MathUtils.clamp(lookOffset - dx * DRAG_YAW, -LOOK_AROUND, LOOK_AROUND);
+    else yaw -= dx * DRAG_YAW;
+    pitch = THREE.MathUtils.clamp(pitch + dy * DRAG_PITCH, PITCH_MIN, PITCH_MAX);
+  }
+
+  function release() {
+    dragging = false;
+  }
+
+  // ロックする相手（{x, z}）か null。解除したときは、その時点の向きのまま
+  function setLock(target) {
+    if (!target && lock) {
+      yaw = wrap(yaw + lookOffset);
+      lookOffset = 0;
+    }
+    lock = target ? { x: target.x, z: target.z } : null;
+  }
+
+  function shake(strength = 1) {
+    shakeLeft = SHAKE_TIME;
+    shakeStrength = strength;
+  }
+
+  function update(target, dt) {
+    // 回避中は、少し遅れて主人公を追う
+    if (!hasFollow || !lag) follow.copy(target);
+    else follow.lerp(target, 1 - Math.exp(-dt / LAG_TIME));
+    hasFollow = true;
+
+    if (lock) {
+      const desired = lockYaw(target, lock);
+      const diff = wrap(desired - yaw);
+      yaw = wrap(yaw + Math.sign(diff) * Math.min(Math.abs(diff), LOCK_TURN_SPEED * dt));
+      if (!dragging) {
+        const back = Math.min(Math.abs(lookOffset), LOOK_RETURN_SPEED * dt);
+        lookOffset -= Math.sign(lookOffset) * back;
+      }
+    }
+
+    const viewYaw = wrap(yaw + lookOffset);
+    const pose = cameraPose(follow, viewYaw, pitch, DISTANCE, SHOULDER);
+
+    // 揺れ：0.2 秒で弱まって消える
+    if (shakeLeft > 0) {
+      shakeLeft = Math.max(0, shakeLeft - dt);
+      shakeTime += dt;
+      const amount = SHAKE_AMOUNT * shakeStrength * (shakeLeft / SHAKE_TIME);
+      pose.position.x += Math.sin(shakeTime * 91) * amount;
+      pose.position.y += Math.sin(shakeTime * 73 + 1) * amount;
+      pose.position.z += Math.sin(shakeTime * 57 + 2) * amount * 0.5;
+    }
+
+    return { ...pose, yaw: viewYaw, pitch };
+  }
+
+  return {
+    drag,
+    release,
+    setLock,
+    shake,
+    setLag: (value) => { lag = value; },
+    update,
+    yaw: () => wrap(yaw + lookOffset),
+    locked: () => lock !== null,
+  };
+}
+
 // ── カメラ：ボタン以外の画面をドラッグして回す ──
 export function createFollowCamera(canvas) {
   const camera = new THREE.PerspectiveCamera(
@@ -28,8 +129,7 @@ export function createFollowCamera(canvas) {
     200,
   );
 
-  let yaw = 0;
-  let pitch = 0.14;
+  const rig = createCameraRig();
   let drag = null;
 
   canvas.addEventListener('pointerdown', (event) => {
@@ -45,27 +145,24 @@ export function createFollowCamera(canvas) {
   canvas.addEventListener('pointermove', (event) => {
     if (!drag || event.pointerId !== drag.id) return;
 
-    yaw -= (event.clientX - drag.x) * 0.006;
-    pitch = THREE.MathUtils.clamp(
-      pitch + (event.clientY - drag.y) * 0.004,
-      0.15,
-      0.9,
-    );
-
+    rig.drag(event.clientX - drag.x, event.clientY - drag.y);
     drag.x = event.clientX;
     drag.y = event.clientY;
   });
 
   function release(event) {
-    if (drag?.id === event.pointerId) drag = null;
+    if (drag?.id === event.pointerId) {
+      drag = null;
+      rig.release();
+    }
   }
 
   canvas.addEventListener('pointerup', release);
   canvas.addEventListener('pointercancel', release);
   canvas.addEventListener('lostpointercapture', release);
 
-  function update(target) {
-    const pose = cameraPose(target, yaw, pitch, DISTANCE, SHOULDER);
+  function update(target, dt = 0) {
+    const pose = rig.update(target, dt);
     camera.position.copy(pose.position);
     camera.lookAt(pose.lookAt);
   }
@@ -77,7 +174,18 @@ export function createFollowCamera(canvas) {
 
   function clear() {
     drag = null;
+    rig.release();
   }
 
-  return { camera, yaw: () => yaw, update, resize, clear };
+  return {
+    camera,
+    yaw: rig.yaw,
+    update,
+    resize,
+    clear,
+    setLock: rig.setLock,
+    locked: rig.locked,
+    shake: rig.shake,
+    setLag: rig.setLag,
+  };
 }
