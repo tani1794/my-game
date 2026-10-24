@@ -1,0 +1,12 @@
+{
+  "name": "ECHO HUNT",
+  "short_name": "ECHO HUNT",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#101b26",
+  "theme_color": "#101b26",
+  "icons": [
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

@@ -1,0 +1,232 @@
+:root {
+  --panel: #1b2530cc;
+  --gold: #c9a96a;
+  --ink: #e8e2d0;
+  --hp: #4caf50;
+  --stamina: #e0b23a;
+  --edge: 16px;
+  --stick: 150px;
+  --minimap: 150px;
+  --attack: 110px;
+  --sub-button: 84px;
+  --run: 72px;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #app {
+  width: 100%; height: 100%; margin: 0; overflow: hidden;
+  background: #101b26;
+  font-family: system-ui, -apple-system, 'Hiragino Sans', sans-serif;
+  overscroll-behavior: none;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+}
+
+#game {
+  display: block; width: 100%; height: 100%;
+  touch-action: none;
+}
+
+.hud {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  color: var(--ink);
+}
+
+.hud button, .hud .stick-area {
+  pointer-events: auto;
+}
+
+/* 斜めに切り落とした角の板 */
+.plate {
+  background: var(--panel);
+  border: 1px solid var(--gold);
+  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0 50%);
+}
+
+/* ── 左上：顔・名前・HP・スタミナ ── */
+.status {
+  position: absolute;
+  top: calc(var(--edge) + env(safe-area-inset-top));
+  left: calc(var(--edge) + env(safe-area-inset-left));
+  display: flex; align-items: center; gap: 6px;
+}
+
+.portrait {
+  width: 84px; height: 84px; flex: none;
+  border-radius: 50%; overflow: hidden;
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 0 2px #0b1118cc;
+  background: #0b1118;
+}
+
+.portrait img {
+  width: 100%; height: 100%; object-fit: cover;
+  transform: scale(1.12);
+}
+
+.bars { display: grid; gap: 5px; margin-top: -10px; }
+
+.name {
+  width: fit-content;
+  padding: 2px 22px 2px 16px;
+  font-family: 'Cinzel', serif; font-weight: 600;
+  font-size: 15px; letter-spacing: 0.08em;
+}
+
+.bar {
+  height: 14px; padding: 2px 10px;
+  background: #0b1118cc;
+  border: 1px solid #c9a96a88;
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 0 100%);
+}
+
+.bar span { display: block; height: 100%; border-radius: 1px; }
+.bar.hp { width: 300px; }
+.bar.hp span { background: linear-gradient(#7ed67f, var(--hp)); }
+.bar.stamina { width: 210px; height: 11px; }
+.bar.stamina span { background: linear-gradient(#f3d27a, var(--stamina)); }
+
+/* ── 右上：クエストとミニマップ ── */
+.quest-column {
+  position: absolute;
+  top: calc(var(--edge) + env(safe-area-inset-top));
+  right: calc(var(--edge) + env(safe-area-inset-right));
+  display: grid; justify-items: end; gap: 10px;
+}
+
+.quest {
+  display: flex; align-items: center; gap: 10px;
+  min-width: 250px; padding: 7px 18px 7px 12px;
+  font-size: 14px;
+}
+
+.quest svg { width: 22px; height: 22px; color: var(--gold); flex: none; }
+.quest .count { margin-left: auto; font-family: 'Cinzel', serif; letter-spacing: 0.1em; }
+
+.minimap {
+  width: var(--minimap); height: var(--minimap);
+}
+
+/* ── 左下：スティックと走る ── */
+.stick-area {
+  position: absolute;
+  left: calc(var(--edge) + 12px + env(safe-area-inset-left));
+  bottom: calc(var(--edge) + env(safe-area-inset-bottom));
+  width: var(--stick); height: var(--stick);
+}
+
+/* ── 丸いボタン共通 ── */
+.round {
+  position: absolute;
+  display: grid; place-content: center; justify-items: center; gap: 2px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 1px solid var(--gold);
+  box-shadow: inset 0 0 0 3px #0b111888, 0 2px 8px #0008;
+  color: var(--ink);
+  font: inherit; font-size: 11px; letter-spacing: 0.05em;
+  touch-action: none;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+  transition: transform 80ms, background-color 80ms;
+}
+
+.round svg { width: var(--icon, 28px); height: var(--icon, 28px); }
+.attack { --icon: 44px; }
+.run { --icon: 24px; }
+
+.round.active {
+  transform: scale(0.94);
+  background: #2c3e52e6;
+}
+
+.run {
+  width: var(--run); height: var(--run);
+  left: calc(var(--edge) + 12px + var(--stick) + 14px + env(safe-area-inset-left));
+  bottom: calc(var(--edge) + env(safe-area-inset-bottom));
+}
+
+/* ── 右下：攻撃・回避・ロック ── */
+.attack {
+  width: var(--attack); height: var(--attack);
+  right: calc(var(--edge) + var(--sub-button) + 14px + env(safe-area-inset-right));
+  bottom: calc(var(--edge) + 18px + env(safe-area-inset-bottom));
+  font-size: 13px;
+}
+
+.dodge {
+  width: var(--sub-button); height: var(--sub-button);
+  right: calc(var(--edge) + env(safe-area-inset-right));
+  bottom: calc(var(--edge) + env(safe-area-inset-bottom));
+}
+
+.lock {
+  width: var(--sub-button); height: var(--sub-button);
+  right: calc(var(--edge) + env(safe-area-inset-right));
+  bottom: calc(var(--edge) + var(--sub-button) + 14px + env(safe-area-inset-bottom));
+}
+
+/* ── 下中央：ロゴ ── */
+.logo {
+  position: absolute; left: 50%;
+  bottom: calc(6px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px;
+  font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 0.35em;
+  color: #e8e2d0cc; white-space: nowrap;
+}
+
+.logo::before, .logo::after {
+  content: ''; width: 48px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold));
+}
+
+.logo::after { transform: scaleX(-1); }
+
+/* ── 上中央：fps（?debug のときだけ） ── */
+.fps {
+  position: absolute; left: 50%;
+  top: calc(6px + env(safe-area-inset-top));
+  transform: translateX(-50%);
+  padding: 2px 8px; border-radius: 6px;
+  background: #07131dcc; font: 12px monospace;
+}
+
+/* ── 描画が止まったとき・縦向きのときの全面案内 ── */
+.notice {
+  position: fixed; inset: 0;
+  display: grid; place-items: center;
+  padding: 24px; text-align: center;
+  background: #07131def; color: var(--ink); font-size: 16px;
+  pointer-events: auto;
+}
+
+.rotate { display: none; }
+
+@media (orientation: portrait) {
+  .rotate { display: grid; }
+}
+
+/* iPhone の横向きのように高さが小さい画面では、全体を小さくする */
+@media (max-height: 430px) {
+  :root {
+    --edge: 10px;
+    --stick: 128px;
+    --minimap: 112px;
+    --attack: 92px;
+    --sub-button: 68px;
+    --run: 60px;
+  }
+
+  .portrait { width: 64px; height: 64px; }
+  .name { font-size: 13px; }
+  .bar.hp { width: 230px; height: 12px; }
+  .bar.stamina { width: 160px; height: 10px; }
+  .quest { min-width: 210px; padding: 5px 14px 5px 10px; font-size: 13px; }
+  .round { font-size: 10px; --icon: 22px; }
+  .attack { --icon: 36px; }
+  .run { --icon: 20px; }
+  .logo { font-size: 11px; }
+}

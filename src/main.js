@@ -6,67 +6,12 @@ import { createTerrain } from './world/terrain.js';
 import { createLighting } from './world/lighting.js';
 import { QUALITY_PRESETS, resolveQuality, createAutoDowngrade } from './quality.js';
 import { createStick } from './ui/stick.js';
+import { createHud } from './ui/hud.js';
 
-// ── 画面と操作ボタン ──
-document.querySelector('#app').innerHTML = `
-  <canvas id="game"></canvas>
-
-  <div id="info">
-    <strong>ECHO HUNT — 移動テスト</strong>
-    <span>PC：WASD / 矢印キーで移動・Shiftで走る</span>
-    <span>画面をドラッグしてカメラを回転</span>
-  </div>
-
-  <div id="stick"></div>
-
-  <button id="run">走る</button>
-`;
-
-const style = document.createElement('style');
-style.textContent = `
-  * { box-sizing: border-box; }
-  html, body, #app {
-    width: 100%; height: 100%; margin: 0; overflow: hidden;
-    background: #101b26; font-family: sans-serif;
-    overscroll-behavior: none;
-  }
-  #game {
-    display: block; width: 100%; height: 100%;
-    touch-action: none;
-  }
-  #info {
-    position: fixed;
-    top: max(16px, env(safe-area-inset-top));
-    left: max(16px, env(safe-area-inset-left));
-    color: white; pointer-events: none;
-    padding: 12px 16px; border-radius: 12px;
-    background: #07131dcc;
-  }
-  #info strong, #info span { display: block; }
-  #info strong { color: #7de5ff; margin-bottom: 6px; }
-  #info span { font-size: 12px; line-height: 1.7; }
-  button {
-    border: 1px solid #ffffff55; color: white;
-    background: #102d42cc; border-radius: 14px;
-    font-size: 22px; touch-action: none;
-    user-select: none; -webkit-user-select: none;
-    -webkit-touch-callout: none;
-  }
-  button.active { background: #2389aa; }
-  #stick {
-    position: fixed;
-    left: max(28px, env(safe-area-inset-left));
-    bottom: max(24px, env(safe-area-inset-bottom));
-    width: 150px; height: 150px;
-  }
-  #run {
-    position: fixed;
-    right: max(24px, env(safe-area-inset-right));
-    bottom: max(34px, env(safe-area-inset-bottom));
-    width: 76px; height: 76px; font-size: 18px;
-  }
-`;
-document.head.appendChild(style);
+// ── 画面：3Dを描くcanvasと、その上に重ねるUI ──
+const app = document.querySelector('#app');
+app.innerHTML = '<canvas id="game"></canvas>';
+const hud = createHud(app);
 
 // ── 3Dの基本設定 ──
 const canvas = document.querySelector('#game');
@@ -94,17 +39,7 @@ function applyQuality(preset) {
 
 applyQuality(QUALITY_PRESETS[quality.tier]);
 
-// ?debug のときだけ fps を表示（Task 4 で HUD に移す）
-const fpsLabel = document.createElement('div');
-fpsLabel.style.cssText = `
-  position: fixed; top: max(8px, env(safe-area-inset-top)); left: 50%;
-  transform: translateX(-50%); color: #e8e2d0; font: 12px monospace;
-  padding: 2px 8px; border-radius: 6px; background: #07131dcc;
-  pointer-events: none;
-`;
-fpsLabel.hidden = !quality.debug;
-document.body.appendChild(fpsLabel);
-
+// ?debug のときだけ fps を表示
 let fpsFrames = 0;
 let fpsTime = 0;
 
@@ -113,7 +48,7 @@ function updateFps(dt) {
   fpsTime += dt;
   if (fpsTime < 0.5) return;
 
-  fpsLabel.textContent = `${Math.round(fpsFrames / fpsTime)} fps · ${quality.tier}`;
+  hud.setFps(`${Math.round(fpsFrames / fpsTime)} fps · ${quality.tier}`);
   fpsFrames = 0;
   fpsTime = 0;
 }
@@ -121,18 +56,12 @@ function updateFps(dt) {
 // iOS でメモリ不足などにより描画できなくなったときの案内
 canvas.addEventListener('webglcontextlost', (event) => {
   event.preventDefault();
-  const notice = document.createElement('div');
-  notice.textContent = '描画が止まりました。再読み込みしてください';
-  notice.style.cssText = `
-    position: fixed; inset: 0; display: grid; place-items: center;
-    color: white; font: 16px sans-serif; background: #07131dee;
-  `;
-  document.body.appendChild(notice);
+  hud.showNotice('描画が止まりました。再読み込みしてください');
 });
 
 const input = createInput();
-const stick = createStick(document.querySelector('#stick'), input.setStick);
-input.bindButton(document.querySelector('#run'), 'run');
+const stick = createStick(hud.stickArea, input.setStick);
+input.bindButton(hud.runButton, 'run');
 
 function clearInput() {
   input.clear();
