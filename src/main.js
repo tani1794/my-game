@@ -7,11 +7,16 @@ import { createLighting } from './world/lighting.js';
 import { QUALITY_PRESETS, resolveQuality, createAutoDowngrade } from './quality.js';
 import { createStick } from './ui/stick.js';
 import { createHud } from './ui/hud.js';
+import { createMinimap } from './ui/minimap.js';
+
+// 結晶獣の位置（Task 11 で獣本体を置くまでは、計画書の座標をそのまま使う）
+const BEAST_POSITION = { x: 0, z: -6 };
 
 // ── 画面：3Dを描くcanvasと、その上に重ねるUI ──
 const app = document.querySelector('#app');
 app.innerHTML = '<canvas id="game"></canvas>';
 const hud = createHud(app);
+const minimap = createMinimap(hud.minimapCanvas);
 
 // ── 3Dの基本設定 ──
 const canvas = document.querySelector('#game');
@@ -92,6 +97,14 @@ function animate(now) {
   player.update(dt, input.read(), followCamera.yaw(), terrain.colliders, terrain.heightAt);
   lighting.update(player.object.position);
   followCamera.update(player.object.position);
+  minimap.draw(
+    {
+      x: player.object.position.x,
+      z: player.object.position.z,
+      rotationY: player.object.rotation.y,
+    },
+    BEAST_POSITION,
+  );
   renderer.render(scene, followCamera.camera);
 }
 
