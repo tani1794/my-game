@@ -47,12 +47,10 @@ export function stepPosition(pos, dir, distance, colliders, bound = 28) {
 const PLAYER_HEIGHT = 1.8;
 const CAPE_COLOR = '#5a7fd6';
 const FADE_SECONDS = 0.2;
-
-// 速さに合わせて、待機・歩き・走りを選ぶ
-function animationFor(speed) {
-  if (speed === 0) return 'Idle';
-  return speed > WALK_SPEED + 0.1 ? 'Running_A' : 'Walking_A';
-}
+// 攻撃と回避は、すぐに切り替わって見えるよう短いフェードにする
+const QUICK_FADE_SECONDS = 0.06;
+// 向き直りの速さ：半回転を 0.08 秒で
+const TURN_SPEED = Math.PI / 0.08;
 
 export function createPlayer(scene) {
   const object = new THREE.Group();
@@ -92,14 +90,18 @@ export function createPlayer(scene) {
   let actions = {};
   let current = null;
 
-  function play(name, timeScale) {
+  function play({ name, loop, timeScale }, fade) {
     const action = actions[name];
     if (!action) return;
     action.timeScale = timeScale;
     if (current === name) return;
 
-    actions[current]?.fadeOut(FADE_SECONDS);
-    action.reset().fadeIn(FADE_SECONDS).play();
+    // 攻撃・回避・のけぞり・倒れるは1回だけ再生して、最後の姿勢で止める
+    action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
+    action.clampWhenFinished = !loop;
+
+    actions[current]?.fadeOut(fade);
+    action.reset().fadeIn(fade).play();
     current = name;
   }
 
@@ -126,7 +128,7 @@ export function createPlayer(scene) {
 
     mixer = new THREE.AnimationMixer(character);
     actions = Object.fromEntries(gltf.animations.map((clip) => [clip.name, mixer.clipAction(clip)]));
-    play('Idle', 1);
+    play({ name: 'Idle', loop: true, timeScale: 1 }, FADE_SECONDS);
   }
 
   async function load(url, loader = loadGLTF) {
@@ -137,35 +139,32 @@ export function createPlayer(scene) {
     );
   }
 
-  function update(dt, input, yaw, colliders, heightAt) {
-    const direction = moveToWorld(input.moveX, input.moveZ, yaw);
-    const length = Math.hypot(direction.x, direction.z);
-    const speed = length > 0 ? speedFor(input) : 0;
-
+  // 戦いの状態（playerActions の frame）に合わせて、動かし、向きを変え、アニメーションを切り替える
+  function drive(dt, frame, colliders, heightAt) {
     if (mixer) {
-      const name = animationFor(speed);
-      // 歩きは、スティックの倒し具合に合わせて足の運びも遅くする
-      play(name, name === 'Walking_A' ? Math.max(0.5, speed / WALK_SPEED) : 1);
+      const quick = frame.mode === 'attack' || frame.mode === 'dodge';
+      play(frame.animation, quick ? QUICK_FADE_SECONDS : FADE_SECONDS);
       mixer.update(dt);
     }
 
-    if (length > 0) {
-      direction.x /= length;
-      direction.z /= length;
-
-      const next = stepPosition(
-        object.position,
-        direction,
-        speedFor(input) * dt,
-        colliders,
-      );
+    const moving = frame.mode !== 'dead' && frame.move.speed > 0;
+    if (moving) {
+      const next = stepPosition(object.position, frame.move, frame.move.speed * dt, colliders);
       object.position.x = next.x;
       object.position.z = next.z;
-      object.rotation.y = Math.atan2(direction.x, direction.z);
+    }
+
+    // 向き：face があればその角度へ、なければ動く向きへ。半回転でも 0.08 秒で追いつく
+    let target = frame.face;
+    if (target === null && moving) target = Math.atan2(frame.move.x, frame.move.z);
+    if (target !== null && frame.mode !== 'dead') {
+      const diff = Math.atan2(Math.sin(target - object.rotation.y), Math.cos(target - object.rotation.y));
+      const turn = Math.sign(diff) * Math.min(Math.abs(diff), TURN_SPEED * dt);
+      object.rotation.y = Math.atan2(Math.sin(object.rotation.y + turn), Math.cos(object.rotation.y + turn));
     }
 
     object.position.y = heightAt(object.position.x, object.position.z);
   }
 
-  return { object, update, load, currentAnimation: () => current };
+  return { object, drive, load, currentAnimation: () => current, actionFor: (name) => actions[name] };
 }

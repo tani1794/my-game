@@ -29,9 +29,22 @@ test('移動範囲 28 の外には出ない', () => {
 import * as THREE from 'three';
 import { createPlayer } from '../src/player.js';
 
-const still = { moveX: 0, moveZ: 0, run: false };
-const walk = { moveX: 0, moveZ: 0.5, run: false };
-const run = { moveX: 0, moveZ: 1, run: true };
+// 戦いの状態（playerActions の出力）を模した frame
+const frame = (over = {}) => ({
+  mode: 'free',
+  move: { x: 0, z: 0, speed: 0 },
+  face: null,
+  swing: null,
+  invulnerable: false,
+  hp: 100,
+  stamina: 100,
+  animation: { name: 'Idle', loop: true, timeScale: 1 },
+  ...over,
+});
+const still = frame();
+const walk = frame({ move: { x: 0, z: 1, speed: 1.5 }, animation: { name: 'Walking_A', loop: true, timeScale: 0.5 } });
+const run = frame({ move: { x: 0, z: 1, speed: 6 }, animation: { name: 'Running_A', loop: true, timeScale: 1 } });
+const once = (name) => ({ name, loop: false, timeScale: 1 });
 const flat = () => 0;
 
 // 高さ2.4の箱を「キャラクター」の代わりにし、3つのアニメーションを持たせる
@@ -43,7 +56,9 @@ function fakeKnight() {
   const cape = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.1), new THREE.MeshStandardMaterial());
   cape.name = 'Knight_Cape';
   scene.add(body, cape);
-  const animations = ['Idle', 'Walking_A', 'Running_A'].map((name) => new THREE.AnimationClip(name, 1, []));
+  const animations = ['Idle', 'Walking_A', 'Running_A', '1H_Melee_Attack_Slice_Diagonal', '1H_Melee_Attack_Slice_Horizontal',
+    '1H_Melee_Attack_Chop', 'Dodge_Forward', 'Dodge_Backward', 'Dodge_Left', 'Dodge_Right', 'Hit_A', 'Death_A']
+    .map((name) => new THREE.AnimationClip(name, 1, []));
   return { scene, animations };
 }
 
@@ -63,11 +78,11 @@ test('キャラクターを読み込むと、身長1.8mにそろえて仮の体�
 test('止まっていれば待機、ゆっくりなら歩き、速ければ走り', async () => {
   const player = createPlayer(new THREE.Scene());
   await player.load('/models/knight.glb', async () => fakeKnight());
-  player.update(0.016, still, 0, [], flat);
+  player.drive(0.016, still, [], flat);
   expect(player.currentAnimation()).toBe('Idle');
-  player.update(0.016, walk, 0, [], flat);
+  player.drive(0.016, walk, [], flat);
   expect(player.currentAnimation()).toBe('Walking_A');
-  player.update(0.016, run, 0, [], flat);
+  player.drive(0.016, run, [], flat);
   expect(player.currentAnimation()).toBe('Running_A');
 });
 
@@ -83,7 +98,7 @@ test('読み込みに失敗しても、仮の体のまま動ける', async () =>
   await player.load('/missing.glb', async () => { throw new Error('404'); });
   expect(player.object.getObjectByName('placeholder').visible).toBe(true);
   expect(player.currentAnimation()).toBeNull();
-  expect(() => player.update(0.016, run, 0, [], flat)).not.toThrow();
+  expect(() => player.drive(0.016, run, [], flat)).not.toThrow();
 });
 
 test('中身が空のキャラクターは読み込み失敗として扱い、仮の体のまま', async () => {
@@ -98,4 +113,40 @@ test('当たり判定の中に入り込んでいても、外へ向かう方向�
   expect(out.x).toBeCloseTo(0.3);
   const deeper = stepPosition({ x: 0.2, z: 0 }, { x: -1, z: 0 }, 0.1, tree);
   expect(deeper.x).toBeCloseTo(0.2);
+});
+
+// ── 戦いの状態で動かす（Task 10） ──
+test('回避の frame で 0.1 秒動かすと 0.7m 進む', () => {
+  const player = createPlayer(new THREE.Scene());
+  player.drive(0.1, frame({ mode: 'dodge', move: { x: 1, z: 0, speed: 7 }, face: 0, animation: once('Dodge_Left') }), [], flat);
+  expect(player.object.position.x).toBeCloseTo(0.7);
+});
+
+test('face を与えると、その向きへ回る（0.08 秒ほどで追いつく）', () => {
+  const player = createPlayer(new THREE.Scene());
+  for (let i = 0; i < 10; i++) player.drive(0.016, frame({ mode: 'attack', face: Math.PI / 2, animation: once('1H_Melee_Attack_Slice_Diagonal') }), [], flat);
+  expect(player.object.rotation.y).toBeCloseTo(Math.PI / 2, 1);
+});
+
+test('face が null で動いていれば、移動の向きを向く', () => {
+  const player = createPlayer(new THREE.Scene());
+  for (let i = 0; i < 10; i++) player.drive(0.016, frame({ move: { x: -1, z: 0, speed: 3 } }), [], flat);
+  expect(player.object.rotation.y).toBeCloseTo(-Math.PI / 2, 1);
+});
+
+test('攻撃の段が変わるとアニメーションも変わり、攻撃は1回だけ再生して最後の姿勢で止まる', async () => {
+  const player = createPlayer(new THREE.Scene());
+  await player.load('/models/knight.glb', async () => fakeKnight());
+  player.drive(0.016, frame({ mode: 'attack', animation: once('1H_Melee_Attack_Slice_Diagonal') }), [], flat);
+  player.drive(0.016, frame({ mode: 'attack', animation: once('1H_Melee_Attack_Slice_Horizontal') }), [], flat);
+  expect(player.currentAnimation()).toBe('1H_Melee_Attack_Slice_Horizontal');
+  const action = player.actionFor('1H_Melee_Attack_Slice_Horizontal');
+  expect(action.loop).toBe(THREE.LoopOnce);
+  expect(action.clampWhenFinished).toBe(true);
+});
+
+test('倒れた後は動かない', () => {
+  const player = createPlayer(new THREE.Scene());
+  player.drive(0.1, frame({ mode: 'dead', move: { x: 1, z: 0, speed: 6 }, animation: once('Death_A') }), [], flat);
+  expect(player.object.position.x).toBe(0);
 });

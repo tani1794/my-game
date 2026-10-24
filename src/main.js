@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createInput } from './input.js';
-import { createPlayer } from './player.js';
+import { createPlayer, moveToWorld } from './player.js';
+import { createPlayerActions } from './combat/playerActions.js';
 import { createFollowCamera } from './camera.js';
 import { createTerrain } from './world/terrain.js';
 import { createLighting } from './world/lighting.js';
@@ -109,6 +110,7 @@ canvas.addEventListener('webglcontextlost', (event) => {
 });
 
 const input = createInput();
+const actions = createPlayerActions();
 const stick = createStick(hud.stickArea, input.setStick);
 input.bindButton(hud.runButton, 'run');
 
@@ -138,7 +140,19 @@ function animate(now) {
   }
   if (quality.debug) updateFps(rawDt);
 
-  player.update(dt, input.read(), followCamera.yaw(), colliders, terrain.heightAt);
+  // 仮のつなぎ：歩き・走りだけ（攻撃・回避・結晶獣との戦いは Task 13 でつなぐ）
+  const control = input.read();
+  const heroFrame = actions.update(dt, {
+    move: moveToWorld(control.moveX, control.moveZ, followCamera.yaw()),
+    run: control.run,
+    attack: false,
+    dodge: false,
+    target: null,
+    self: player.object.position,
+    facing: player.object.rotation.y,
+    lockOn: false,
+  });
+  player.drive(dt, heroFrame, colliders, terrain.heightAt);
   ruins.update(now / 1000);
   beast?.update(now / 1000);
   vegetation?.update(now / 1000);
