@@ -4,12 +4,17 @@ import { mulberry32 } from './random.js';
 const ARCH_CENTERS = [-5, 5];
 const ARCH_Z = -14;
 const STONE_SIZE = 1.1;
-const PILLAR_HEIGHT = 7;
-const PILLAR_LAYERS = 7;
+// 柱は太めのブロックを4段積み、その上に半径2mの半円アーチを載せる
+const PILLAR_HEIGHT = 4.8;
+const PILLAR_LAYERS = 4;
+const PILLAR_BLOCK_SCALE = 1.15;
 const PILLAR_STEP =
-  (PILLAR_HEIGHT + 0.2 - STONE_SIZE) / (PILLAR_LAYERS - 1);
+  (PILLAR_HEIGHT + 0.2 - STONE_SIZE * PILLAR_BLOCK_SCALE) / (PILLAR_LAYERS - 1);
+const ARCH_RADIUS = 2;
+const ARCH_BLOCKS = 9;
+// 夕日に照らされた、明るく暖かい灰色の石
+const STONE_COLOR = '#8f8a82';
 
-// 開始位置から見て左手前〜中ほど（獣に隠れない位置）
 const FLAG_POSITIONS = [[-6, -1], [-4.5, 1.5]];
 const FLAG_YAW = 0.4;
 const FLAG_TOP = 2.66;
@@ -26,7 +31,7 @@ function buildStoneInstances(heightAt) {
     const columnHeights = [];
 
     // Two pillars per arch.
-    for (const offsetX of [-2, 2]) {
+    for (const offsetX of [-ARCH_RADIUS, ARCH_RADIUS]) {
       const x = centerX + offsetX;
       const ground = heightAt(x, ARCH_Z);
 
@@ -34,9 +39,7 @@ function buildStoneInstances(heightAt) {
       colliders.push({ x, z: ARCH_Z, radius: 0.8 });
 
       for (let layer = 0; layer < PILLAR_LAYERS; layer++) {
-        const sx = 0.96 + detailsRandom() * 0.08;
-        const sy = 0.97 + detailsRandom() * 0.06;
-        const sz = 0.96 + detailsRandom() * 0.08;
+        const sy = PILLAR_BLOCK_SCALE * (0.97 + detailsRandom() * 0.06);
 
         blocks.push({
           x: x + (detailsRandom() - 0.5) * 0.10,
@@ -47,22 +50,21 @@ function buildStoneInstances(heightAt) {
             layer * PILLAR_STEP,
           z: ARCH_Z + (detailsRandom() - 0.5) * 0.14,
 
-          sx,
+          sx: PILLAR_BLOCK_SCALE * (0.96 + detailsRandom() * 0.08),
           sy,
-          sz,
+          sz: PILLAR_BLOCK_SCALE * (0.96 + detailsRandom() * 0.08),
 
           rx: (detailsRandom() - 0.5) * 0.07,
           ry: (detailsRandom() - 0.5) * 0.13,
           rz: (detailsRandom() - 0.5) * 0.07,
 
-          brightness: 0.9 + detailsRandom() * 0.2,
+          brightness: 0.8 + detailsRandom() * 0.35,
         });
       }
     }
 
-    // Keep the two ends of the lintel.
-    // Randomly remove one or two interior blocks.
-    const interior = [1, 2, 3];
+    // 半円に並べる石（両端は残し、内側の1〜2個を欠けさせる）
+    const interior = [1, 2, 3, 4, 5, 6, 7];
 
     for (let i = interior.length - 1; i > 0; i--) {
       const j = Math.floor(gapsRandom() * (i + 1));
@@ -76,37 +78,37 @@ function buildStoneInstances(heightAt) {
     const missingCount = gapsRandom() < 0.5 ? 1 : 2;
     const omitted = new Set(interior.slice(0, missingCount));
 
-    const lintelBase =
-      Math.max(...columnHeights) + PILLAR_HEIGHT;
+    // 半円の中心（アーチの起点）は柱の上端より少し上
+    const springY = Math.max(...columnHeights) + PILLAR_HEIGHT + 0.4;
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < ARCH_BLOCKS; i++) {
       if (omitted.has(i)) continue;
 
-      const sy = 0.97 + detailsRandom() * 0.06;
+      const angle = (i / (ARCH_BLOCKS - 1)) * Math.PI;
 
       blocks.push({
         x:
           centerX +
-          i -
-          2 +
-          (detailsRandom() - 0.5) * 0.08,
+          Math.cos(angle) * ARCH_RADIUS +
+          (detailsRandom() - 0.5) * 0.06,
 
         y:
-          lintelBase +
-          STONE_SIZE * sy / 2 +
+          springY +
+          Math.sin(angle) * ARCH_RADIUS +
           (detailsRandom() - 0.5) * 0.04,
 
         z: ARCH_Z + (detailsRandom() - 0.5) * 0.08,
 
-        sx: 0.98 + detailsRandom() * 0.04,
-        sy,
-        sz: 0.98 + detailsRandom() * 0.04,
+        // 円の接線方向に長い楔形の石
+        sx: 0.85 + detailsRandom() * 0.06,
+        sy: 0.7,
+        sz: 1.15,
 
         rx: (detailsRandom() - 0.5) * 0.06,
         ry: (detailsRandom() - 0.5) * 0.08,
-        rz: (detailsRandom() - 0.5) * 0.08,
+        rz: angle + Math.PI / 2 + (detailsRandom() - 0.5) * 0.08,
 
-        brightness: 0.9 + detailsRandom() * 0.2,
+        brightness: 0.8 + detailsRandom() * 0.35,
       });
     }
   }
@@ -118,7 +120,7 @@ function buildStoneInstances(heightAt) {
   );
 
   const material = new THREE.MeshStandardMaterial({
-    color: '#7d8288',
+    color: STONE_COLOR,
     roughness: 0.95,
   });
 

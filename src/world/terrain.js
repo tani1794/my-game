@@ -7,6 +7,9 @@ const PATH_Z_START = 12;
 const PATH_Z_END = -14;
 const BLEND = 4;
 const CLIFF_COUNT = 56;
+const PLAZA_CENTER_Z = -4;
+const PLAZA_STONE_RADIUS = 8.5;
+const GROUND_REPEAT = 10;
 
 function smoothstep(edge0, edge1, x) {
   const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
@@ -75,32 +78,70 @@ function createGround() {
     geometry,
     new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 }),
   );
+  ground.name = 'ground';
   ground.receiveShadow = true;
-  return ground;
+
+  // 地面の画像を貼る。画像の色に頂点色が掛け算されるので、頂点色は白寄りの淡い色むらに切り替える
+  function setGroundTexture(texture) {
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(GROUND_REPEAT, GROUND_REPEAT);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+
+    const tinted = new Float32Array(colors.length);
+    for (let i = 0; i < colors.length; i++) tinted[i] = colors[i] + (1 - colors[i]) * 0.6;
+    geometry.setAttribute('color', new THREE.BufferAttribute(tinted, 3));
+
+    ground.material.map = texture;
+    ground.material.needsUpdate = true;
+  }
+
+  return { ground, setGroundTexture };
 }
 
-// ── 石畳：道の上に平たい石を並べる ──
-function createPathStones() {
+// 敷石の置き場所：道の上と、獣の前の広場（中心 (0, -4)、半径 8.5m）。
+// 形と大きさを不揃いにし、広場の縁ほど抜けを多くして、苔に埋もれた古い石畳に見せる
+export function placeFlagstones() {
   const random = mulberry32(5);
   const stones = [];
+  const spacing = 0.7;
 
-  for (let z = PATH_Z_START - 0.3; z > PATH_Z_END; z -= 0.62) {
-    for (let x = -PATH_HALF_WIDTH + 0.3; x < PATH_HALF_WIDTH; x += 0.62) {
-      // ところどころ石が抜けて、土が見えるようにする
-      if (random() < 0.12) continue;
+  for (let gz = PATH_Z_START; gz > PLAZA_CENTER_Z - PLAZA_STONE_RADIUS; gz -= spacing) {
+    for (let gx = -PLAZA_STONE_RADIUS; gx <= PLAZA_STONE_RADIUS; gx += spacing) {
+      const x = gx + (random() - 0.5) * 0.3;
+      const z = gz + (random() - 0.5) * 0.3;
+      const fromPlaza = Math.hypot(x, z - PLAZA_CENTER_Z);
+      const onPath = isOnPath(x, z);
+      if (!onPath && fromPlaza > PLAZA_STONE_RADIUS) continue;
+
+      const skip = onPath ? 0.15 : 0.3 + 0.35 * (fromPlaza / PLAZA_STONE_RADIUS);
+      if (random() < skip) continue;
+
+      const size = 0.3 + random() * 0.2;
+      const aspect = 0.65 + random() * 0.95;
       stones.push({
-        x: x + (random() - 0.5) * 0.12,
-        z: z + (random() - 0.5) * 0.12,
-        size: 0.48 + random() * 0.1,
+        x,
+        z,
+        sx: size * aspect,
+        sz: size / aspect,
+        thickness: 0.05 + random() * 0.05,
         turn: random() * Math.PI,
-        shade: 0.85 + random() * 0.25,
+        shade: 0.72 + random() * 0.4,
       });
     }
   }
 
+  return stones;
+}
+
+// ── 石畳：不揃いな七角形の平石を並べる ──
+function createPathStones() {
+  const stones = placeFlagstones();
+
   const mesh = new THREE.InstancedMesh(
-    new THREE.CylinderGeometry(0.5, 0.52, 0.08, 6),
-    new THREE.MeshStandardMaterial({ color: '#8a8478', roughness: 0.95 }),
+    new THREE.CylinderGeometry(1, 1.04, 1, 7),
+    new THREE.MeshStandardMaterial({ color: '#82796c', roughness: 0.95, flatShading: true }),
     stones.length,
   );
 
@@ -108,9 +149,9 @@ function createPathStones() {
   const color = new THREE.Color();
 
   stones.forEach((stone, i) => {
-    dummy.position.set(stone.x, 0.02, stone.z);
+    dummy.position.set(stone.x, heightAt(stone.x, stone.z) + 0.01, stone.z);
     dummy.rotation.set(0, stone.turn, 0);
-    dummy.scale.set(stone.size, 1, stone.size);
+    dummy.scale.set(stone.sx, stone.thickness, stone.sz);
     dummy.updateMatrix();
     mesh.setMatrixAt(i, dummy.matrix);
     mesh.setColorAt(i, color.setScalar(stone.shade));
@@ -178,11 +219,12 @@ function createCliffs() {
 }
 
 export function createTerrain(scene) {
-  scene.add(createGround());
+  const { ground, setGroundTexture } = createGround();
+  scene.add(ground);
   scene.add(createPathStones());
 
   const cliffs = createCliffs();
   scene.add(cliffs.mesh);
 
-  return { colliders: cliffs.colliders, heightAt, isOnPath };
+  return { colliders: cliffs.colliders, heightAt, isOnPath, setGroundTexture };
 }

@@ -86,36 +86,38 @@ test('石・木材をそれぞれ1個のInstancedMeshにまとめる', () => {
 // Arch tests
 // --------------------------------------------------
 
-test('横木は必ず一部が欠け、両端が残る', () => {
+test('アーチは柱の上に半円に石を並べ、両端と頂点付近の形が分かり、一部が欠けている', () => {
   const scene = new THREE.Scene();
 
   createRuins(scene, flat);
 
   const stone = find(scene, 'ruins-stones');
 
-  // 28 pillar blocks + 6 to 8 lintel blocks.
-  expect(stone.count).toBeGreaterThanOrEqual(34);
-  expect(stone.count).toBeLessThanOrEqual(36);
+  // 柱 4本 × 4段 = 16個 ＋ 半円の石 2つ × 9個（1〜2個ずつ欠ける）= 30〜32個
+  expect(stone.count).toBeGreaterThanOrEqual(30);
+  expect(stone.count).toBeLessThanOrEqual(32);
 
   const matrix = new THREE.Matrix4();
   const pos = new THREE.Vector3();
-
-  const beamXs = [];
+  const arch = [];
 
   for (let i = 0; i < stone.count; i++) {
     stone.getMatrixAt(i, matrix);
-
     pos.setFromMatrixPosition(matrix);
-
-    if (pos.y > 7) {
-      beamXs.push(pos.x);
-    }
+    if (pos.y > 4.9) arch.push({ x: pos.x, y: pos.y });
   }
 
-  for (const edge of [-7, -3, 3, 7]) {
-    expect(
-      beamXs.some((x) => Math.abs(x - edge) < 0.1)
-    ).toBe(true);
+  for (const center of [-5, 5]) {
+    const blocks = arch.filter((b) => Math.abs(b.x - center) < 2.6);
+    // 半円の両端（柱の真上）が残っている
+    expect(blocks.some((b) => Math.abs(b.x - (center - 2)) < 0.3)).toBe(true);
+    expect(blocks.some((b) => Math.abs(b.x - (center + 2)) < 0.3)).toBe(true);
+    // 半円なので、中央ほど高い位置に石がある（頂点は柱の上端 + 半径 2m 付近）
+    const top = Math.max(...blocks.map((b) => b.y));
+    expect(top).toBeGreaterThan(6.4);
+    // 9個のうち1〜2個が欠けている
+    expect(blocks.length).toBeGreaterThanOrEqual(7);
+    expect(blocks.length).toBeLessThanOrEqual(8);
   }
 });
 

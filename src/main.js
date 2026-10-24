@@ -40,6 +40,12 @@ const terrain = createTerrain(scene);
 const ruins = createRuins(scene, terrain.heightAt);
 const colliders = [...terrain.colliders, ...ruins.colliders];
 
+// 地面の画像：読めないときは、頂点色だけの地面のまま続ける
+new THREE.TextureLoader()
+  .loadAsync('/textures/ground.webp')
+  .then((texture) => terrain.setGroundTexture(texture))
+  .catch((error) => console.warn('地面の画像を読み込めませんでした', error));
+
 // 遠景：画像が無い・読めないときは、コードで作る空と山にする
 withFallback(
   createBackdrop(scene, '/textures/backdrop.webp'),

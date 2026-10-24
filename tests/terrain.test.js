@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest';
 import * as THREE from 'three';
-import { heightAt, createTerrain } from '../src/world/terrain.js';
+import { heightAt, createTerrain, isOnPath } from '../src/world/terrain.js';
 
 test('中央の広場（半径12）と道は平ら', () => {
   expect(heightAt(0, 0)).toBe(0);
@@ -44,4 +44,34 @@ test('外周に隙間がなく、崖の外へ出られない', () => {
     const blocked = colliders.some((c) => Math.hypot(x - c.x, z - c.z) <= c.radius + 0.4);
     expect(blocked).toBe(true);
   }
+});
+
+import { placeFlagstones } from '../src/world/terrain.js';
+
+test('敷石は毎回同じ並びで、道と獣の前の広場に、不揃いな形で敷く', () => {
+  const stones = placeFlagstones();
+  expect(placeFlagstones()).toEqual(stones);
+  expect(stones.length).toBeGreaterThanOrEqual(250);
+  expect(stones.length).toBeLessThanOrEqual(700);
+
+  const inPlaza = (s) => Math.hypot(s.x, s.z + 4) <= 8.5;
+  for (const s of stones) expect(isOnPath(s.x, s.z) || inPlaza(s)).toBe(true);
+  expect(stones.some((s) => !isOnPath(s.x, s.z))).toBe(true); // 広場にも敷く
+
+  const ratios = stones.map((s) => Math.max(s.sx, s.sz) / Math.min(s.sx, s.sz));
+  expect(Math.max(...ratios)).toBeGreaterThan(1.4); // 細長い石もある
+});
+
+test('地面の画像を、繰り返し・色の空間を正しく設定して貼る', () => {
+  const scene = new THREE.Scene();
+  const terrain = createTerrain(scene);
+  const texture = new THREE.Texture();
+  terrain.setGroundTexture(texture);
+
+  const ground = scene.getObjectByName('ground');
+  expect(ground.material.map).toBe(texture);
+  expect(texture.wrapS).toBe(THREE.RepeatWrapping);
+  expect(texture.wrapT).toBe(THREE.RepeatWrapping);
+  expect(texture.repeat.x).toBeGreaterThanOrEqual(8);
+  expect(texture.colorSpace).toBe(THREE.SRGBColorSpace);
 });
