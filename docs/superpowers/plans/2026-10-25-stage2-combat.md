@@ -212,11 +212,12 @@ test('角度', () => {
 |---|---|
 | 1段目 / 2段目 / 3段目 | 全体の長さ 0.5 / 0.5 / 0.6 秒。当たる時間は 0.15〜0.30 / 0.12〜0.27 / 0.25〜0.42 秒。威力 10 / 12 / 22 |
 | つながる受付 | 各段の当たる時間の終わりから 0.4 秒以内に attack。受付中の押下は次の段の予約になり、今の段が終わったら出る |
-| 回避 | 0.55 秒、最初の 0.35 秒が無敵、速さ 7m/秒、スタミナ 25。どの状態からでも出せる（`dead` を除く）。スタミナが 25 未満なら出ない |
+| 回避 | 0.55 秒、最初の 0.35 秒が無敵、速さ 7m/秒、スタミナ 20。どの状態からでも出せる（`dead` を除く）。スタミナが 20 未満なら出ず、予約もしない |
 | 回避の向き | 押したときの `move` の向き。0 なら主人公の後ろ。アニメーションは主人公の向きとの差で前・後・左・右を選ぶ |
 | のけぞり | 0.4 秒動けない。回避は出せる |
-| 移動の速さ | 歩き 3m/秒（倒し量を掛ける）、走り 6m/秒（スタミナ 1秒に15、0 なら歩き） |
-| スタミナ回復 | 最後に使ってから 0.6 秒後から、1秒に 30 |
+| 移動の速さ | 歩き 3m/秒（倒し量を掛ける）、走り 6m/秒（動いているときだけスタミナ 1秒に15、0 なら歩き）。攻撃中は動かない。のけぞり中は回避だけ出せる |
+| スタミナ回復 | 最後に使ってから 0.5 秒後から、1秒に 30 |
+| 向き | 攻撃の各段の出だしで1回だけ `face` を出す。ロックオン中でも移動では移動方向を向く |
 
 - [ ] **Step 1: 失敗するテストを書く**（主なもの）
 
@@ -234,11 +235,13 @@ test('攻撃1段目は 0.15〜0.30 秒だけ当たり、1回の振りで同じ i
   for (let t = 0; t < 0.5; t += 0.01) { const f = step(a, 0.01); if (f.swing) ids.add(f.swing.id); }
   expect(ids.size).toBe(1);
 });
+test('空振りでも、当たる時間の終わりから 0.4 秒は次の段を受け付ける。早押しは予約になる', () => {});
+test('のけぞり中は攻撃も移動もできず、回避はできる', () => {});
 test('受付時間内に押すと 2段目、遅れると 1段目に戻る', () => { /* 2段目の swing.damage が 12、遅れた場合は 10 */ });
 test('攻撃中でも回避できる。無敵中は takeHit が false', () => { /* attack → 0.1秒後 dodge → mode が dodge、takeHit(30) が false、hp 100 */ });
-test('スタミナ 25 未満では回避が出ない', () => { /* 回避4回目が出ない */ });
-test('回避の連打で入力が二重にならない', () => { /* 回避中にもう一度 dodge を押しても、スタミナは25しか減らない */ });
-test('スタミナは 0.6 秒休むと 1秒に30回復', () => {});
+test('スタミナ 20 未満では回避が出ず、予約もされない', () => { /* 回避6回目が出ない。回復後も勝手に出ない */ });
+test('回避の連打で入力が二重にならない', () => { /* 回避中にもう一度 dodge を押しても、スタミナは20しか減らない */ });
+test('スタミナは 0.5 秒休むと 1秒に30回復。止まって走るボタンを押しても減らない', () => {});
 test('体力0で dead になり、以後の入力を受け付けない', () => {});
 test('reset で体力・スタミナ・状態が最初に戻る', () => {});
 ```
@@ -254,18 +257,21 @@ test('reset で体力・スタミナ・状態が最初に戻る', () => {});
 
 **Interfaces:**
 - Consumes: `shapes.js` の `angleTo`、`angleDiff`（Task 2）、`mulberry32`
-- Produces: `createBeastBrain({ seed = 1, start = { x: 0, z: -6, facing: 0 }, bounds = 22 })` → `{ update(dt, player: {x, z}) -> BeastFrame, takeDamage(n) -> { stagger: boolean, enraged: boolean, dead: boolean }, reset() }`
+- Produces: `createBeastBrain({ seed = 1, start = { x: 0, z: -6, facing: 0 }, bounds = 13 })` → `{ update(dt, player: {x, z}) -> BeastFrame, takeDamage(n) -> { stagger: boolean, enraged: boolean, dead: boolean }, reset() }`
 
 **決め事（設計書5章＋ここで決める値）**
 - 区分：近い ≤6m、中 6〜12m、遠い >12m。正面は向きから ±60 度
 - 選び方：近い・正面→slam、近い・横後ろ→spin、中→rain か charge、遠い→charge か rain。直前と同じなら、その場面のもう一方。近い場面でもう一方が無いときは、もう一方の近い攻撃
-- 予告：slam 0.9、charge 1.1、spin 0.8、rain 1.3 秒（怒り状態は 0.75 倍）。rain は塗りつぶし後 0.15 秒おきに5つ
-- 動けない時間：1.0〜1.6 秒の乱数（怒り状態は 0.75 倍）
+- 予告：slam 0.9、charge 1.1、spin 0.8、rain 1.3 秒（怒り状態は 0.75 倍。ただし 0.7 秒未満にしない）。rain は塗りつぶし後 0.15 秒おきに5つ
+- 予告の位置と向きは、出した瞬間に固定する。塗りつぶし後 0.15 秒は `attack` を残し `attack.impact = true` にする（見せるだけで判定しない）
+- rain の円：出した瞬間の主人公の位置に1つ、周り3m以内に4つ。円どうしは 2.4m 以上離す（`strikes` は1つずつ出す。1回の雨で当たる上限はまとめ役が2つに制限する）
+- 動けない時間：1.0〜1.6 秒の乱数（怒り状態は 0.75 倍）。そのあと 0.6〜0.8 秒向き直ってから次の予告
 - 体の動き（`cue`）の長さ：slam 0.5、charge 0.9（7m/秒の2倍＝14m を 0.9 秒で）、spin 0.6、rain 0.2 秒
-- 突進の終点：遊べる範囲（中心から半径 `bounds`）の内側で止める。帯の長さもそれに合わせて短くする
+- 突進の長さ：`min(14, 主人公までの距離 + 4)`。終点が動ける範囲（中心から半径 `bounds`）の外なら、端で止まるよう帯ごと短くする
 - 向き直り：1秒に 90 度まで。approach は 12m より遠いとき 1秒に 2.5m
 - よろめき：受けたダメージが 300 たまるごとに 2 秒。怒り状態への切り替えは体力 800 未満になった瞬間
-- 怒り状態の charge は、終わったら向き直って2回目の charge（予告あり）を出す
+- 怒り状態の charge は、終わったら向き直って2回目の charge（予告あり）を出す。途中でよろめくか倒れたら取り消す
+- 怒り状態は次の攻撃から適用する。よろめくと出していた予告は消える。300 を超えた分のダメージは捨てる
 
 - [ ] **Step 1: 失敗するテストを書く**（主なもの）：
   - 正面 4m にいると slam の予告、後ろ 4m だと spin
@@ -273,7 +279,10 @@ test('reset で体力・スタミナ・状態が最初に戻る', () => {});
   - 同じ攻撃が2回続かない（20回分の選択で隣り合う同種がない）
   - 怒り状態で予告と動けない時間が 0.75 倍、charge の後にもう一度 charge
   - 300 ダメージでよろめき（2秒 phase が stagger）、たまりは 0 に戻る
-  - 突進の終点が半径 22m の内側
+  - 突進の終点が半径 13m の内側。主人公が 5m 先にいれば突進の長さは 9m
+  - rain の円どうしが 2.4m 以上離れている
+  - よろめくと予告が消え、その攻撃は当たらない
+  - 怒り状態の予告が 0.7 秒未満にならない（spin は 0.7 秒）
   - 体力0で dead になり、以後は攻撃しない。`reset()` で最初に戻る
 - [ ] **Step 2:** FAIL を確認 → **Step 3:** 実装 → **Step 4:** PASS を確認
 - [ ] **Step 5: コミット** `git commit -m "feat: crystal beast combat brain"`
@@ -288,13 +297,21 @@ test('reset で体力・スタミナ・状態が最初に戻る', () => {});
 - Consumes: `createPlayerActions`（Task 4）、`createBeastBrain`（Task 5）、`shapeContains`・`sectorHitsCircle`（Task 2）
 - Produces: `createBattle({ seed })` → `{ update(dt, { intent, playerPos: {x,z}, beastColliders: Circle[] }) -> { player: PlayerFrame, beast: BeastFrame, events: Event[], outcome: 'fighting' | 'won' | 'lost', time: number }, reset() }`
   - 主人公の `swing` が出ている間、まだ当てていない `swing.id` で `beastColliders` のどれかに重なれば、1回だけ beastHit
-  - 主人公の攻撃の扇：主人公の位置から、主人公の向きに半径 2.2m・120 度（向きは `player.face` か、なければ移動の向き。まとめ役が最後の向きを覚える）
+  - 主人公の攻撃の扇：主人公の位置から、主人公の向きに半径 1.6m・120 度（向きは `player.face` か、なければ移動の向き。まとめ役が最後の向きを覚える）
+  - 1回の rain で主人公に当たるのは最大2つ
+  - 同じ frame に両方の体力が0になったら `won`
+  - 戦いは、最初に `intent.move` が0でないか `attack` が押された frame から始まり、それまでは結晶獣も動かない
   - `beast.strikes` の形に `playerPos` が入っていて、主人公が無敵でなければ playerHit。結晶の雨は1つずつ判定する
   - `dt` は内部で 0.05 秒で頭打ち
-  - 勝ち・負けのあとは update しても体力が変わらない
+  - 勝ち・負けのあとは update しても体力が変わらない。残っている予告は消す
+  - `reset({ seed })` で乱数の種を差し替えられる（やり直しのたびに種を変える）
 
 - [ ] **Step 1: 失敗するテストを書く**：
   - 1回の振りで、結晶獣の当たり判定に何frame重なっても、ダメージは1回
+  - 主人公の中心が結晶獣の体から 1.6m より離れていると当たらない
+  - 1回の rain で受けるダメージは最大 40
+  - 同時に体力0なら `won`
+  - 最初に動くまで、結晶獣は予告を出さない
   - 予告の塗りつぶしの瞬間に形の中にいると hp が減り、shake の出来事が出る。無敵中は減らない
   - 結晶獣の体力0で `won` と time、主人公の体力0で `lost`
   - **`reset()` で、予告中の状態も含めてすべて最初に戻る**（Review Focus 2）
@@ -366,7 +383,8 @@ test('reset で体力・スタミナ・状態が最初に戻る', () => {});
 - Consumes: `PlayerFrame`（Task 4）
 - Produces: `player.drive(dt, frame: PlayerFrame, colliders, heightAt)`（既存の `update` は `drive` に置き換え、`moveToWorld` と `speedFor` は main 側で使う）
   - `frame.move` の向きと速さで `stepPosition` する。`frame.face` が null でなければその角度へ 0.08 秒で向く（なければ移動の向き）
-  - `frame.animation` の名前・ループ・速さで再生。ループしないもの（攻撃・回避・のけぞり・倒れる）は `clampWhenFinished` で最後の姿勢を保つ。同じ名前でも新しい振り（`swing.id` が変わる、回避をもう一度）なら頭から再生
+  - `frame.animation` の名前・ループ・速さで再生。ループしないもの（攻撃・回避・のけぞり・倒れる）は `LoopOnce` と `clampWhenFinished` で最後の姿勢を保つ。同じ名前でも新しい振り（`swing.id` が変わる、回避をもう一度）なら頭から再生
+  - 切り替えのフェードは、攻撃と回避への切り替えは 0.06 秒、それ以外は 0.2 秒
   - 倒れた後は動かない
 
 - [ ] **Step 1: 失敗するテストを書く**：dodge の frame で 0.1 秒動かすと 0.7m 進む。face を与えると向きがそちらへ回る。攻撃の2段目に移るとアニメーションが Slice_Horizontal に変わる。dead では位置が変わらない
@@ -404,7 +422,7 @@ test('reset で体力・スタミナ・状態が最初に戻る', () => {});
   - `followCamera.setLock(beast: {x, z} | null)`：null で解除
   - `followCamera.shake(strength)`：0.2 秒、最大 `0.15 * strength` m
   - `followCamera.update(target, dt)`（dt を追加）
-  - ロック中：yaw を `lockYaw` へ 1秒に 180 度まで回す。ドラッグは ±30 度までの見回し。指を離すと 0.5 秒で 0 に戻る
+  - 自由視点の yaw と、ロック中の見回し（±30 度）は別の変数にする。ロック中：yaw を `lockYaw` へ 1秒に 180 度まで回す。指を離すと見回しは 0.5 秒で 0 に戻る。縦のドラッグはロック中も有効。解除したらその時点の yaw のまま
   - 回避中の遅れ：`update` の target を、0.2 秒で追いつく速さで追う（`followCamera.setLag(true/false)`）
 
 - [ ] **Step 1: 失敗するテストを書く**：`lockYaw({0,6},{0,-6})` が 0（+z 側から −z を見る）。ロック中にドラッグ 100 度分しても見回しは 30 度で止まる。shake の後 0.25 秒で揺れが 0
@@ -423,8 +441,8 @@ test('reset で体力・スタミナ・状態が最初に戻る', () => {});
   1. `input.takePresses()`。'lock' でロックの切り替え（結晶獣が倒れていたら無視）
   2. `intent` を作る（`moveToWorld` で世界の向きに、`run`、押下、`target` に結晶獣の位置、`self` に主人公の位置）
   3. `battle.update(dt, …)` → `player.drive`、`beast.apply`、`telegraphs.sync`、`combatHud`、`hud.setVitals`、`followCamera`
-  4. 出来事：beastHit → `beast.hitFlash()` とダメージの数字（結晶獣の頭上を画面座標に変換）、shake → `followCamera.shake`、won → `hud.setQuest(true)`・`showResult('won', time)`・ロック解除、lost → `showResult('lost')`
-  5. 「もう一度」：`battle.reset()`、主人公の位置を (0, 6) と向き π に戻す、`beast.apply` を初期 frame で、`telegraphs.clear()`、`combatHud.clear()`・`hideResult()`、`hud.setQuest(false)`、ロック解除
+  4. 出来事：beastHit → `beast.hitFlash()` とダメージの数字（当たった場所の、結晶獣の高さを画面座標に変換。カメラの後ろなら出さない）。照準もカメラの後ろなら隠す、shake → `followCamera.shake`、won → `hud.setQuest(true)`・`showResult('won', time)`・ロック解除、lost → `showResult('lost')`
+  5. 「もう一度」：`battle.reset({ seed: 前回 + 1 })`、主人公の位置を (0, 6) と向き π に戻す、`beast.apply` を初期 frame で、`telegraphs.clear()`、`combatHud.clear()`・`hideResult()`、`hud.setQuest(false)`、ロック解除
 - 結晶獣の読み込み前は戦いを始めない（`beast` が null の間は battle を進めない）
 
 - [ ] **Step 1: 失敗するテストを書く**（hud）：`setVitals(50, 25)` で緑のバーが 50%、黄色が 25%。`setQuest(true)` で「1 / 1」
