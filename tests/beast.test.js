@@ -104,3 +104,86 @@ test('逆光でも岩肌が見えるよう、AIの獣の色を明るく持ち上
   expect(material.color.r).toBeCloseTo(1.4);
   expect(material.emissive.getHex()).not.toBe(0);
 });
+
+// ── 戦いの状態で動かす（Task 11） ──
+const beastFrame = (over = {}) => ({
+  phase: 'idle',
+  position: { x: 0, z: -6 },
+  facing: 0,
+  attack: null,
+  strikes: [],
+  strikeKind: null,
+  cue: null,
+  enraged: false,
+  hp: 2800,
+  ...over,
+});
+
+test('apply で位置が変わると、当たり判定も同じだけ動く（配列は同じもののまま）', async () => {
+  const beast = await createBeast(new THREE.Scene(), '/models/beast.glb', flat, async () => fakeGltf());
+  const colliders = beast.colliders;
+  const before = colliders.map((c) => ({ ...c }));
+  beast.apply(beastFrame({ position: { x: 3, z: -2 } }), 1);
+  expect(beast.colliders).toBe(colliders);
+  colliders.forEach((c, i) => {
+    expect(c.x - before[i].x).toBeCloseTo(3);
+    expect(c.z - before[i].z).toBeCloseTo(4);
+  });
+  expect(beast.position).toEqual({ x: 3, z: -2 });
+  expect(beast.object.position.x).toBeCloseTo(3);
+});
+
+test('向きが変わると、胴の前後の当たり判定も回る', async () => {
+  const beast = await createBeast(new THREE.Scene(), '/models/beast.glb', flat, async () => fakeGltf());
+  beast.apply(beastFrame({ facing: Math.PI / 2 }), 1);
+  const xs = beast.colliders.map((c) => c.x);
+  expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(5);
+});
+
+test('叩きつけの前半は頭側を持ち上げ、後半で振り下ろす', async () => {
+  const beast = await createBeast(new THREE.Scene(), '/models/beast.glb', flat, async () => fakeGltf());
+  beast.apply(beastFrame({ phase: 'strike', cue: { kind: 'slam', t: 0.25 } }), 1);
+  expect(beast.object.rotation.x).toBeLessThan(-0.1);
+  beast.apply(beastFrame({ phase: 'strike', cue: { kind: 'slam', t: 1 } }), 1.1);
+  expect(beast.object.rotation.x).toBeGreaterThan(0);
+});
+
+test('倒れると横に倒れて沈み、結晶が消える（代わりの獣は結晶のメッシュを隠す。AIの獣は発光が0）', async () => {
+  const fallback = createFallbackBeast(flat);
+  fallback.apply(beastFrame({ phase: 'dead', cue: { kind: 'death', t: 1 } }), 1);
+  expect(fallback.object.getObjectByName('beast-crystals').visible).toBe(false);
+  expect(Math.abs(fallback.object.rotation.z)).toBeGreaterThan(1);
+
+  const ai = await createBeast(new THREE.Scene(), '/models/beast.glb', flat, async () => fakeGltf());
+  ai.apply(beastFrame({ phase: 'dead', cue: { kind: 'death', t: 1 } }), 1);
+  expect(ai.glow()).toBe(0);
+});
+
+test('怒り状態では結晶の色が赤寄りになり、強く光る', async () => {
+  const beast = await createBeast(new THREE.Scene(), '/models/beast.glb', flat, async () => fakeGltf());
+  beast.apply(beastFrame(), 0);
+  const calm = { color: beast.crystalColor().clone(), glow: beast.glow() };
+  beast.apply(beastFrame({ enraged: true }), 0);
+  expect(beast.crystalColor().r).toBeGreaterThan(calm.color.r + 0.1);
+  expect(beast.glow()).toBeGreaterThan(calm.glow * 1.2);
+});
+
+test('hitFlash で一瞬白く光り、0.12 秒後には戻る。かけらが飛ぶ', async () => {
+  const beast = await createBeast(new THREE.Scene(), '/models/beast.glb', flat, async () => fakeGltf());
+  beast.apply(beastFrame(), 1);
+  const base = beast.flashLevel();
+  beast.hitFlash({ x: 0, z: -3 });
+  beast.apply(beastFrame(), 1.01);
+  expect(beast.flashLevel()).toBeGreaterThan(base + 0.5);
+  expect(beast.object.getObjectByName('beast-shards').visible).toBe(true);
+  beast.apply(beastFrame(), 1.2);
+  expect(beast.flashLevel()).toBeCloseTo(0);
+});
+
+test('倒れた後に「もう一度」で戻ると、結晶がまた見える', () => {
+  const beast = createFallbackBeast(flat);
+  beast.apply(beastFrame({ phase: 'dead', cue: { kind: 'death', t: 1 } }), 1);
+  beast.apply(beastFrame(), 2);
+  expect(beast.object.getObjectByName('beast-crystals').visible).toBe(true);
+  expect(beast.object.rotation.z).toBeCloseTo(0);
+});
