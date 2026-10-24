@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import {
   createBackdrop,
   createFallbackBackdrop,
+  IMAGE_SUN_X,
 } from '../src/world/backdrop.js';
 
 const okLoader = { loadAsync: async () => new THREE.Texture() };
@@ -73,11 +74,12 @@ test('内側から見て左右が反転しない（画像を鏡写しで貼る�
   expect(mesh.material.map.repeat.x).toBe(-1);
 });
 
-test('画像の左から25%にある太陽が、ワールドの太陽の方角に来る', async () => {
+test('画像の中の太陽が、ワールドの太陽の方角に来る', async () => {
   const mesh = await createBackdrop(new THREE.Scene(), '/textures/backdrop.webp', okLoader);
-  // 鏡写しにしたので、画像の横位置 0.25 は筒の u = 0.75 に来る。
+  // 鏡写しにしたので、画像の横位置 IMAGE_SUN_X は筒の u = 1 - IMAGE_SUN_X に来る。
   // 筒の u は、回転前のローカルで (sin(u·2π), cos(u·2π)) の向き
-  const local = new THREE.Vector3(Math.sin(0.75 * Math.PI * 2), 0, Math.cos(0.75 * Math.PI * 2));
+  const u = 1 - IMAGE_SUN_X;
+  const local = new THREE.Vector3(Math.sin(u * Math.PI * 2), 0, Math.cos(u * Math.PI * 2));
   const world = local.applyEuler(mesh.rotation);
   const sun = new THREE.Vector3(-30, 0, -40).normalize();
   expect(world.x).toBeCloseTo(sun.x, 5);

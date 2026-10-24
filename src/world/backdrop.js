@@ -4,6 +4,9 @@ import { mulberry32 } from './random.js';
 const TAU = Math.PI * 2;
 const SUN_DIRECTION = new THREE.Vector3(-30, 25, -40).normalize();
 const MOUNTAIN_BASE_Y = -5;
+
+// 遠景画像（public/textures/backdrop.webp）の中で、太陽がある横位置（左端 0〜右端 1）
+export const IMAGE_SUN_X = 0.361;
 const MOUNTAIN_SEGMENTS = 48;
 
 const MOUNTAIN_LAYERS = [
@@ -182,10 +185,10 @@ export async function createBackdrop(
   /*
    * CylinderGeometry の u は、ローカル座標上で
    * x = sin(u * 2π), z = cos(u * 2π) の方向に対応する。
-   * 画像を横に反転して貼ったので、画像の左から 25% にある太陽は u = 0.75 に来る。
-   * その角度 1.5π を、ワールドの太陽の水平角 atan2(x, z) に合わせる。
+   * 画像を横に反転して貼ったので、画像の横位置 IMAGE_SUN_X にある太陽は u = 1 - IMAGE_SUN_X に来る。
+   * その角度を、ワールドの太陽の水平角 atan2(x, z) に合わせる。
    */
-  const textureSunAngle = 0.75 * TAU;
+  const textureSunAngle = (1 - IMAGE_SUN_X) * TAU;
   const worldSunAngle = Math.atan2(SUN_DIRECTION.x, SUN_DIRECTION.z);
   backdrop.rotation.y = worldSunAngle - textureSunAngle;
 
