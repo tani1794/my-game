@@ -25,3 +25,6 @@ dist-ssr
 
 # superpowers plan workspaces
 .superpowers/
+
+# ダウンロードした元素材（軽量化する前。リポジトリには入れない）
+assets-src/packs/

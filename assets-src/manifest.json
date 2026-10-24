@@ -1,0 +1,8 @@
+[
+  {
+    "src": "assets-src/packs/beast/beast-raw.glb",
+    "out": "public/models/beast.glb",
+    "textureSize": 1024,
+    "simplifyRatio": 1
+  }
+]

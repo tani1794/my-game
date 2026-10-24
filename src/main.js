@@ -9,12 +9,13 @@ import { createPost } from './world/post.js';
 import { createEffects } from './world/effects.js';
 import { createBackdrop, createFallbackBackdrop } from './world/backdrop.js';
 import { withFallback } from './assets.js';
+import { createBeast } from './world/beast.js';
 import { QUALITY_PRESETS, resolveQuality, createAutoDowngrade } from './quality.js';
 import { createStick } from './ui/stick.js';
 import { createHud } from './ui/hud.js';
 import { createMinimap } from './ui/minimap.js';
 
-// 結晶獣の位置（Task 11 で獣本体を置くまでは、計画書の座標をそのまま使う）
+// 結晶獣の位置（ミニマップと土ぼこりで使う。beast.js の配置と同じ）
 const BEAST_POSITION = { x: 0, z: -6 };
 
 // ── 画面：3Dを描くcanvasと、その上に重ねるUI ──
@@ -44,6 +45,16 @@ withFallback(
   () => createFallbackBackdrop(scene),
 );
 const player = createPlayer(scene);
+// 開始位置：道の手前から、奥の結晶獣を向く
+player.object.position.set(0, 0, 6);
+player.object.rotation.y = Math.PI;
+
+// 結晶獣：読み込めたら当たり判定に加える（失敗時はコードで作る獣になる）
+let beast = null;
+createBeast(scene, '/models/beast.glb', terrain.heightAt).then((loaded) => {
+  beast = loaded;
+  colliders.push(...loaded.colliders);
+});
 const followCamera = createFollowCamera(canvas);
 
 // ── 画質：URLで固定されていなければ、fpsを見て自動で下げる ──
@@ -112,6 +123,7 @@ function animate(now) {
 
   player.update(dt, input.read(), followCamera.yaw(), colliders, terrain.heightAt);
   ruins.update(now / 1000);
+  beast?.update(now / 1000);
   effects.update(dt, now / 1000, player.object.position);
   lighting.update(player.object.position);
   followCamera.update(player.object.position);
