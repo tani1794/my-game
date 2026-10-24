@@ -1,0 +1,208 @@
+.combat-hud {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  overflow: hidden;
+  pointer-events: none;
+  color: #e8e2d0;
+  font-family: system-ui, -apple-system, 'Hiragino Sans', sans-serif;
+}
+
+.combat-hud,
+.combat-hud * {
+  box-sizing: border-box;
+}
+
+.combat-hud [hidden] {
+  display: none !important;
+}
+
+/* 上中央：結晶獣の体力 */
+.boss-bar {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top));
+  left: 50%;
+  width: 36%;
+  padding: 5px 12px 8px;
+  transform: translateX(-50%);
+  background: #1b2530cc;
+  border: 1px solid #c9a96a;
+  clip-path: polygon(
+    8px 0,
+    calc(100% - 8px) 0,
+    100% 50%,
+    calc(100% - 8px) 100%,
+    8px 100%,
+    0 50%
+  );
+  filter: drop-shadow(0 2px 5px #0008);
+}
+
+.boss-bar-name {
+  margin-bottom: 4px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-shadow: 0 1px 2px #000;
+}
+
+.boss-bar-track {
+  height: 10px;
+  padding: 2px;
+  overflow: hidden;
+  background: #0b1118cc;
+  border: 1px solid #c9a96a88;
+}
+
+.boss-bar-fill {
+  width: 100%;
+  height: 100%;
+  background: #c8423a;
+  box-shadow: 0 0 5px #c8423a88;
+  transition:
+    width 100ms linear,
+    background-color 120ms ease;
+}
+
+.boss-bar.enraged .boss-bar-fill {
+  background: #8e1f1a;
+  box-shadow: 0 0 7px #8e1f1aaa;
+}
+
+/* ロックオン照準 */
+.reticle {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  transform: translate(-50%, -50%);
+  border: 2px solid #c9a96a;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1px #0b1118aa,
+    inset 0 0 0 1px #0b111888,
+    0 0 6px #c9a96a88;
+}
+
+/* 攻撃命中時の数字 */
+.damage-number {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: #e8e2d0;
+  font-family: 'Cinzel', ui-serif, Georgia, serif;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-shadow:
+    0 1px 2px #000,
+    0 0 5px #c8423a;
+  will-change: top, opacity;
+}
+
+/* 勝敗表示 */
+.result {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(340px, calc(100% - 48px));
+  padding: 24px 32px 22px;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  background: #1b2530cc;
+  border: 1px solid #c9a96a;
+  clip-path: polygon(
+    12px 0,
+    calc(100% - 12px) 0,
+    100% 18px,
+    100% calc(100% - 18px),
+    calc(100% - 12px) 100%,
+    12px 100%,
+    0 calc(100% - 18px),
+    0 18px
+  );
+  box-shadow: 0 5px 18px #0009;
+}
+
+.result-title {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-shadow: 0 2px 3px #000;
+}
+
+.result-time {
+  min-height: 20px;
+  margin-top: 8px;
+  font-family: 'Cinzel', system-ui, sans-serif;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  color: #e8e2d0cc;
+}
+
+.result-retry {
+  margin-top: 18px;
+  padding: 8px 28px;
+  pointer-events: auto;
+  border: 1px solid #c9a96a;
+  color: #e8e2d0;
+  background: #1b2530ee;
+  font: 600 14px system-ui, -apple-system, 'Hiragino Sans', sans-serif;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  touch-action: manipulation;
+  clip-path: polygon(
+    7px 0,
+    calc(100% - 7px) 0,
+    100% 50%,
+    calc(100% - 7px) 100%,
+    7px 100%,
+    0 50%
+  );
+  transition:
+    transform 80ms,
+    background-color 80ms;
+}
+
+.result-retry:active {
+  transform: scale(0.96);
+  background: #2c3e52ee;
+}
+
+.result-retry:focus-visible {
+  outline: 2px solid #e8e2d0;
+  outline-offset: 3px;
+}
+
+@media (max-height: 430px) {
+  .boss-bar {
+    padding-top: 4px;
+    padding-bottom: 6px;
+  }
+
+  .boss-bar-name {
+    font-size: 12px;
+  }
+
+  .boss-bar-track {
+    height: 8px;
+  }
+
+  .result {
+    padding: 18px 28px 17px;
+  }
+
+  .result-title {
+    font-size: 24px;
+  }
+
+  .result-time {
+    margin-top: 5px;
+  }
+
+  .result-retry {
+    margin-top: 12px;
+    padding-block: 7px;
+  }
+}
