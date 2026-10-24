@@ -14,13 +14,13 @@ function smoothstep(edge0, edge1, x) {
 }
 
 // 道（x = 0 に沿った幅3mの帯）からの距離
-function distanceToPath(x, z) {
+export function distanceToPath(x, z) {
   const dx = Math.max(Math.abs(x) - PATH_HALF_WIDTH, 0);
   const dz = Math.max(z - PATH_Z_START, PATH_Z_END - z, 0);
   return Math.hypot(dx, dz);
 }
 
-function isOnPath(x, z) {
+export function isOnPath(x, z) {
   return distanceToPath(x, z) === 0;
 }
 

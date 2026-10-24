@@ -10,6 +10,7 @@ import { createEffects } from './world/effects.js';
 import { createBackdrop, createFallbackBackdrop } from './world/backdrop.js';
 import { withFallback } from './assets.js';
 import { createBeast } from './world/beast.js';
+import { createVegetation } from './world/vegetation.js';
 import { QUALITY_PRESETS, resolveQuality, createAutoDowngrade } from './quality.js';
 import { createStick } from './ui/stick.js';
 import { createHud } from './ui/hud.js';
@@ -63,10 +64,19 @@ const autoDowngrade = quality.locked ? null : createAutoDowngrade(quality.tier);
 const post = createPost(renderer, scene, followCamera.camera, QUALITY_PRESETS[quality.tier]);
 const effects = createEffects(scene, QUALITY_PRESETS[quality.tier], BEAST_POSITION);
 
+// 木・岩・草：読み込めたら当たり判定に加え、その時点の画質に草の量を合わせる
+let vegetation = null;
+createVegetation(scene, QUALITY_PRESETS[quality.tier], terrain.heightAt).then((loaded) => {
+  vegetation = loaded;
+  colliders.push(...loaded.colliders);
+  loaded.setGrassCount(QUALITY_PRESETS[quality.tier].grass);
+});
+
 function applyQuality(preset) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, preset.pixelRatio));
   lighting.setQuality(preset);
   post.setQuality(preset);
+  vegetation?.setGrassCount(preset.grass);
 }
 
 applyQuality(QUALITY_PRESETS[quality.tier]);
@@ -124,6 +134,7 @@ function animate(now) {
   player.update(dt, input.read(), followCamera.yaw(), colliders, terrain.heightAt);
   ruins.update(now / 1000);
   beast?.update(now / 1000);
+  vegetation?.update(now / 1000);
   effects.update(dt, now / 1000, player.object.position);
   lighting.update(player.object.position);
   followCamera.update(player.object.position);
