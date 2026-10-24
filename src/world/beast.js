@@ -131,7 +131,6 @@ function rig({ pivot, length, heightAt, bodyMaterials, crystals }) {
 
     position.x = frame.position.x;
     position.z = frame.position.z;
-    placeColliders(colliders, position, frame.facing, length);
 
     let yaw = frame.facing;
     let pitch = 0;
@@ -154,6 +153,9 @@ function rig({ pivot, length, heightAt, bodyMaterials, crystals }) {
       sink = 0.6 * ease(cue.t);
     }
     if (frame.phase === 'approach') bob = Math.abs(Math.sin(time * 4)) * 0.06;
+
+    // 当たり判定は、見えている体と同じ向き（回転攻撃の途中も含む）に置く
+    placeColliders(colliders, position, yaw, length);
 
     pivot.position.set(position.x, heightAt(position.x, position.z) - sink + bob, position.z);
     pivot.rotation.set(pitch, yaw, roll);

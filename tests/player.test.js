@@ -150,3 +150,12 @@ test('倒れた後は動かない', () => {
   player.drive(0.1, frame({ mode: 'dead', move: { x: 1, z: 0, speed: 6 }, animation: once('Death_A') }), [], flat);
   expect(player.object.position.x).toBe(0);
 });
+
+import { pushOut } from '../src/player.js';
+
+test('結晶獣の体の中に入り込んだら、いちばん近い外側へ押し出す（突進で埋まらない）', () => {
+  const body = [{ x: 0, z: 8, radius: 2.6 }, { x: 0, z: 5.25, radius: 2.6 }, { x: 0, z: 10.75, radius: 2.6 }];
+  const out = pushOut({ x: 0.5, z: 6 }, body);
+  for (const c of body) expect(Math.hypot(out.x - c.x, out.z - c.z)).toBeGreaterThanOrEqual(c.radius + 0.4 - 1e-6);
+  expect(pushOut({ x: 10, z: 0 }, body)).toEqual({ x: 10, z: 0 });
+});

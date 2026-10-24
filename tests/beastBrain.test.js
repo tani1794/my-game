@@ -214,3 +214,36 @@ test('遠いときは主人公へ近づき、向きは1秒に90度までしか�
   for (let t = 0; t < 0.5; t += 0.01) g = brain.update(0.01, far);
   expect(Math.hypot(g.position.x, g.position.z + 6)).toBeGreaterThan(0.5);
 });
+
+test('怒り状態の2回目の突進は、主人公のほうへ向き直ってから出す', () => {
+  for (let seed = 1; seed < 80; seed++) {
+    const brain = createBeastBrain({ start: START, seed, maxHp: 1600 });
+    brain.takeDamage(299); brain.takeDamage(299); brain.takeDamage(299); brain.takeDamage(10);
+    for (let t = 0; t < 2.5; t += 0.01) brain.update(0.01, front(8));
+    const first = untilTelegraph(brain, front(8));
+    if (first.attack.kind !== 'charge') continue;
+    // 主人公は (0, 2)。1回目の突進で獣はその先まで進む
+    untilStrike(brain, front(8));
+    const second = untilTelegraph(brain, front(8));
+    expect(second.attack.kind).toBe('charge');
+    const band = second.attack.shapes[0];
+    const toPlayer = Math.atan2(0 - band.x, 2 - band.z);
+    expect(Math.abs(Math.atan2(Math.sin(band.angle - toPlayer), Math.cos(band.angle - toPlayer)))).toBeLessThan(0.3);
+    return;
+  }
+  throw new Error('怒り状態の突進が選ばれなかった');
+});
+
+test('突進しても近づいても、頭の先（中心から5.35m）は木の輪（半径14.5m）の内側にとどまる', () => {
+  const spots = [{ x: 0, z: 22 }, { x: 20, z: 0 }, { x: -15, z: -15 }, { x: 0, z: -22 }];
+  for (const spot of spots) {
+    for (let seed = 1; seed < 6; seed++) {
+      const brain = createBeastBrain({ start: START, seed });
+      for (let t = 0; t < 20; t += 0.02) {
+        const f = brain.update(0.02, spot);
+        const tip = { x: f.position.x + Math.sin(f.facing) * 5.35, z: f.position.z + Math.cos(f.facing) * 5.35 };
+        expect(Math.hypot(tip.x, tip.z)).toBeLessThanOrEqual(14.5001);
+      }
+    }
+  }
+});

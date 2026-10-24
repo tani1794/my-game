@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createInput } from './input.js';
-import { createPlayer, moveToWorld } from './player.js';
+import { createPlayer, moveToWorld, pushOut } from './player.js';
 import { createPlayerActions } from './combat/playerActions.js';
 import { createBattle } from './combat/battle.js';
 import { BEAST_MAX_HP } from './combat/beastBrain.js';
@@ -220,6 +220,9 @@ function stepCombat(dt, time) {
   if (quality.debug) window.__combat = { result, player: player.object.position, beast: beast.position, colliders: beast.colliders };
   player.drive(dt, result.player, colliders, terrain.heightAt);
   beast.apply(result.beast, time);
+  const freed = pushOut(player.object.position, beast.colliders);
+  player.object.position.x = freed.x;
+  player.object.position.z = freed.z;
   BEAST_POSITION.x = beast.position.x;
   BEAST_POSITION.z = beast.position.z;
 

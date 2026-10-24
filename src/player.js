@@ -31,6 +31,25 @@ function canMove(fromX, fromZ, x, z, colliders, bound) {
   });
 }
 
+// 当たり判定の円の中に入り込んでいたら、いちばん近い外側へ押し出す（動く結晶獣に重なられたとき用）
+export function pushOut(pos, colliders) {
+  let { x, z } = pos;
+  for (let pass = 0; pass < 4; pass++) {
+    for (const c of colliders) {
+      const limit = c.radius + PLAYER_RADIUS;
+      const dx = x - c.x;
+      const dz = z - c.z;
+      const d = Math.hypot(dx, dz);
+      if (d >= limit) continue;
+      const nx = d > 1e-6 ? dx / d : 1;
+      const nz = d > 1e-6 ? dz / d : 0;
+      x = c.x + nx * limit;
+      z = c.z + nz * limit;
+    }
+  }
+  return { x, z };
+}
+
 // x と z を別々に判定して、ぶつかった方向だけ止める（壁沿いに滑る）
 export function stepPosition(pos, dir, distance, colliders, bound = 28) {
   let { x, z } = pos;

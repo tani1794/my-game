@@ -25,10 +25,17 @@ const IMPACT_TIME = 0.15;
 const SLAM = { reachFromCenter: 2.5, radius: 5, spread: (100 * Math.PI) / 180 };
 const SPIN_RADIUS = 6;
 const CHARGE = { width: 4, maxLength: 14, overshoot: 4, speed: 14 / 0.9 };
+// 体は中心から前後に約5.35m。どの向きに回っても頭の先が木の輪（半径14.5m）に入らないよう、中心は半径9.15m以内
+const BODY_HALF_LENGTH = 5.35;
+const TREE_LINE = 14.5;
+const CENTER_BOUNDS = TREE_LINE - BODY_HALF_LENGTH;
+// 怒り状態の2回目の突進：主人公との角度差がこれ以下になるまで向き直る（最長2.5秒）
+const ALIGN_TOLERANCE = 0.15;
+const ALIGN_MAX_TIME = 2.5;
 const RAIN = { count: 5, radius: 1.6, scatter: 3, spacing: 2.4, interval: 0.15 };
 const CUE_TIME = { slam: 0.5, spin: 0.6, rain: RAIN.interval * (RAIN.count - 1) + IMPACT_TIME };
 
-export function createBeastBrain({ seed = 1, start = { x: 0, z: -6, facing: 0 }, bounds = 13, maxHp = MAX_HP } = {}) {
+export function createBeastBrain({ seed = 1, start = { x: 0, z: -6, facing: 0 }, bounds = CENTER_BOUNDS, maxHp = MAX_HP } = {}) {
   // 怒り状態は体力が半分を切ったとき（既定の1600なら800）
   const enrageBelow = maxHp * (ENRAGE_BELOW / MAX_HP);
   let random;
@@ -182,7 +189,9 @@ export function createBeastBrain({ seed = 1, start = { x: 0, z: -6, facing: 0 },
       } else {
         phase = 'idle';
       }
-      if (timer >= waitTime) startTelegraph(secondCharge ? 'charge' : chooseKind(player), player);
+      const aligned = Math.abs(angleDiff(facing, angleTo(position, player))) <= ALIGN_TOLERANCE;
+      const ready = secondCharge ? aligned || timer >= ALIGN_MAX_TIME : timer >= waitTime;
+      if (ready) startTelegraph(secondCharge ? 'charge' : chooseKind(player), player);
     } else if (phase === 'telegraph') {
       if (timer >= attack.telegraphTime) {
         phase = 'strike';

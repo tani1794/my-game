@@ -145,9 +145,12 @@ export function createPlayerActions({ maxHp = MAX_HP } = {}) {
     if (mode === 'attack') {
       const attack = ATTACKS[stage];
       if (timer >= attack.duration) {
-        if (reserved) {
+        const finisher = stage === ATTACKS.length - 1;
+        // 3段目のあとは、早押しがあっても一度止まる（4段目はない）
+        if (reserved && !finisher) {
           startAttack(intent);
         } else {
+          reserved = false;
           mode = 'free';
           comboLeft = COMBO_WINDOW - (attack.duration - attack.hitEnd);
           if (stage === ATTACKS.length - 1) nextStage = 0;

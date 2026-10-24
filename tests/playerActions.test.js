@@ -177,3 +177,18 @@ test('reset で体力・スタミナ・状態が最初に戻る', () => {
   expect(f).toMatchObject({ mode: 'free', hp: 100, stamina: 100, swing: null });
   expect(f.animation.name).toBe('Idle');
 });
+
+test('連打しても3段目の後は必ず一度止まる（4段目はない）', () => {
+  const a = createPlayerActions();
+  const names = [];
+  for (let t = 0; t < 3; t += 0.01) {
+    const f = step(a, 0.01, { attack: true });
+    names.push(f.mode === 'free' ? 'free' : f.animation.name);
+  }
+  // 最初の3段目（Chop）が終わった直後の frame
+  const chopStart = names.indexOf('1H_Melee_Attack_Chop');
+  let chopEnd = chopStart;
+  while (names[chopEnd] === '1H_Melee_Attack_Chop') chopEnd++;
+  expect(chopStart).toBeGreaterThan(0);
+  expect(names[chopEnd]).toBe('free');
+});

@@ -187,3 +187,12 @@ test('倒れた後に「もう一度」で戻ると、結晶がまた見える',
   expect(beast.object.getObjectByName('beast-crystals').visible).toBe(true);
   expect(beast.object.rotation.z).toBeCloseTo(0);
 });
+
+test('回転攻撃の間は、当たり判定も見えている体と同じ向きに回る', async () => {
+  const beast = await createBeast(new THREE.Scene(), '/models/beast.glb', flat, async () => fakeGltf());
+  beast.apply(beastFrame({ phase: 'strike', cue: { kind: 'spin', t: 0.5 } }), 1);
+  const yaw = beast.object.rotation.y;
+  const front = beast.colliders[1];
+  const angle = Math.atan2(front.x - beast.position.x, front.z - beast.position.z);
+  expect(Math.abs(Math.atan2(Math.sin(angle - yaw), Math.cos(angle - yaw)))).toBeLessThan(0.01);
+});
