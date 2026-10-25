@@ -12,7 +12,7 @@ function fakeAudio() {
     resume: vi.fn(async () => { ctx.state = 'running'; }),
     suspend: vi.fn(async () => { ctx.state = 'suspended'; }),
     createGain() {
-      const node = { gain: { value: 1 }, connect: vi.fn(() => node) };
+      const node = { gain: { value: 1 }, connect: vi.fn(() => node), disconnect: vi.fn() };
       gains.push(node);
       return node;
     },
@@ -24,6 +24,7 @@ function fakeAudio() {
         connect: vi.fn(() => source),
         start: vi.fn(),
         stop: vi.fn(),
+        disconnect: vi.fn(),
         onended: null,
       };
       sources.push(source);
@@ -160,4 +161,40 @@ test('消音中は効果音を鳴らさず、環境音は音量0にする', asyn
   expect(gains[0].gain.value).toBe(0);
   sound.setMuted(false);
   expect(gains[0].gain.value).toBeCloseTo(0.8);
+});
+
+test('iPhone で音が止められている（interrupted）間は鳴らさず、次のタッチで再開を試みる', async () => {
+  const { sound, sources, ctx } = await ready();
+  ctx.state = 'interrupted';
+  sound.play({ name: 'hit', group: 'beast', distance: 1 });
+  expect(started(sources)).toHaveLength(0);
+  ctx.resume.mockClear();
+  sound.unlock();
+  expect(ctx.resume).toHaveBeenCalled();
+  ctx.currentTime += 1;
+  sound.play({ name: 'hit', group: 'beast', distance: 1 });
+  expect(started(sources)).toHaveLength(1);
+});
+
+test('鳴り終わった音は、音源も音量の節も切り離す（長い戦いで溜まらない）', async () => {
+  const { sound, sources, gains } = await ready();
+  sound.play({ name: 'hit', group: 'beast', distance: 1 });
+  const source = started(sources)[0];
+  const gain = gains[gains.length - 1];
+  source.onended();
+  expect(source.disconnect).toHaveBeenCalled();
+  expect(gain.disconnect).toHaveBeenCalled();
+});
+
+test('stopAll で鳴っている効果音を止める（環境音は止めない）', async () => {
+  const { sound, sources, ctx } = await ready();
+  sound.startAmbient('wind');
+  sound.play({ name: 'hit', group: 'beast', distance: 1 });
+  ctx.currentTime += 1;
+  sound.play({ name: 'swing1', group: 'player' });
+  sound.stopAll();
+  const [wind, hit, swing] = started(sources);
+  expect(hit.stop).toHaveBeenCalled();
+  expect(swing.stop).toHaveBeenCalled();
+  expect(wind.stop).not.toHaveBeenCalled();
 });

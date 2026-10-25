@@ -23,12 +23,16 @@ const STRIKE_SOUNDS = {
 const WALK_STEP_INTERVAL = 0.5;
 const RUN_STEP_INTERVAL = 0.32;
 const WALK_SPEED = 3;
+// 実際の移動がこれより遅ければ（壁や木に押し付けているとき）足音を鳴らさない
+const MIN_REAL_SPEED = 0.5;
 
 export function createSoundCues() {
   let stepTime = 0;
+  let lastPos = null;
 
   function reset() {
     stepTime = 0;
+    lastPos = null;
   }
 
   function update(dt, prev, next, playerPos) {
@@ -78,9 +82,16 @@ export function createSoundCues() {
       }
     }
 
+    // 入力ではなく、実際に動いた距離で判断する（最初の frame は入力を信じる）
+    const realSpeed = lastPos && dt > 0
+      ? Math.hypot(playerPos.x - lastPos.x, playerPos.z - lastPos.z) / dt
+      : Infinity;
+    lastPos = { x: playerPos.x, z: playerPos.z };
+
     const moving =
       next.player.mode === 'free' &&
-      next.player.move.speed > 0;
+      next.player.move.speed > 0 &&
+      realSpeed >= MIN_REAL_SPEED;
 
     if (!moving) {
       stepTime = 0;

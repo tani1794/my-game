@@ -56,23 +56,33 @@ test('結晶獣が倒れた瞬間に shatter（1回だけ）', () => {
   expect(names(c.update(0.01, dead, dead, here))).toEqual([]);
 });
 
-test('足音：歩きは0.5秒、走りは0.32秒おき。止まると時計が戻る', () => {
-  const walk = createSoundCues();
-  const w = frame({ player: { move: { x: 0, z: 1, speed: 3 } } });
+// 主人公の位置を、速さに合わせて実際に動かしながら進める
+function walkFor(cues, f, seconds, speed, dt = 0.01) {
   let steps = 0;
-  for (let t = 0; t < 1.0 - 1e-9; t += 0.01) steps += names(walk.update(0.01, w, w, here)).filter((n) => n === 'step').length;
-  expect(steps).toBe(2);
+  const pos = { x: 0, z: 2 };
+  for (let t = 0; t < seconds - 1e-9; t += dt) {
+    pos.z += speed * dt;
+    steps += names(cues.update(dt, f, f, { ...pos })).filter((n) => n === 'step').length;
+  }
+  return steps;
+}
 
-  const run = createSoundCues();
+test('足音：歩きは0.5秒、走りは0.32秒おき。止まると時計が戻る', () => {
+  const w = frame({ player: { move: { x: 0, z: 1, speed: 3 } } });
+  expect(walkFor(createSoundCues(), w, 1.0, 3)).toBe(2);
+
   const r = frame({ player: { move: { x: 0, z: 1, speed: 6 } } });
-  steps = 0;
-  for (let t = 0; t < 1.0 - 1e-9; t += 0.01) steps += names(run.update(0.01, r, r, here)).filter((n) => n === 'step').length;
-  expect(steps).toBe(3);
+  expect(walkFor(createSoundCues(), r, 1.0, 6)).toBe(3);
 
   const stop = createSoundCues();
-  for (let t = 0; t < 0.4; t += 0.01) stop.update(0.01, w, w, here);
+  walkFor(stop, w, 0.4, 3);
   stop.update(0.01, w, frame(), here);
   expect(names(stop.update(0.15, frame(), w, here))).toEqual([]);
+});
+
+test('壁や木に押し付けて実際には動いていないときは、足音を鳴らさない', () => {
+  const w = frame({ player: { move: { x: 0, z: 1, speed: 3 } } });
+  expect(walkFor(createSoundCues(), w, 2.0, 0)).toBe(0);
 });
 
 test('最初の frame（prev が null）は何も鳴らさない。reset の後も前の戦いの音は鳴らない', () => {

@@ -76,15 +76,17 @@ export function createSound({
   }
 
   // 最初のタッチ・キー入力の中で呼ぶ
+  // iPhone では通話や Siri のあと 'interrupted' のまま止まることがあるので、タッチのたびに呼んで再開を試みる
   function unlock() {
     ensureContext();
     unlocked = true;
-    if (!suspended) ctx.resume();
+    if (!suspended && ctx.state !== 'running') ctx.resume();
     if (ambientName && !ambientSource) startAmbient(ambientName);
   }
 
   function play(cue) {
-    if (!unlocked || suspended || isMuted) return;
+    // 実際に音が動いているときだけ鳴らす（止まっている間に予約すると、再開時にまとめて鳴る）
+    if (!unlocked || suspended || isMuted || ctx.state !== 'running') return;
     const buffer = buffers.get(cue.name);
     if (!buffer) return;
 
@@ -107,12 +109,21 @@ export function createSound({
     source.buffer = buffer;
     source.playbackRate.value = 1 + (random() * 2 - 1) * PITCH_SPREAD;
     source.connect(gain);
+    // 鳴り終わったら切り離す（長い戦いで音の部品が溜まらないように）
     source.onended = () => {
       const index = voices.indexOf(source);
       if (index >= 0) voices.splice(index, 1);
+      source.disconnect();
+      gain.disconnect();
     };
     source.start();
     voices.push(source);
+  }
+
+  // やり直しのとき：鳴っている効果音を止める（環境音はそのまま）
+  function stopAll() {
+    for (const voice of voices.splice(0)) voice.stop();
+    lastPlayed.clear();
   }
 
   // 繰り返し流す環境音。読み込みやタッチがまだなら、準備ができたときに始める
@@ -152,5 +163,5 @@ export function createSound({
     if (unlocked) ctx?.resume();
   }
 
-  return { unlock, load, play, startAmbient, setMuted, muted: () => isMuted, suspend, resume, loaded: () => buffers.size };
+  return { unlock, load, play, stopAll, startAmbient, setMuted, muted: () => isMuted, suspend, resume, loaded: () => buffers.size };
 }

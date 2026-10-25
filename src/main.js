@@ -96,10 +96,9 @@ sound.load(SOUND_NAMES);
 sound.startAmbient('wind');
 hud.setMutedIcon(sound.muted());
 
+// タッチのたびに呼ぶ（iPhone で通話などのあと止まった音も、次のタッチで再開する）
 function unlockSound() {
   sound.unlock();
-  window.removeEventListener('pointerdown', unlockSound);
-  window.removeEventListener('keydown', unlockSound);
 }
 window.addEventListener('pointerdown', unlockSound);
 window.addEventListener('keydown', unlockSound);
@@ -184,6 +183,7 @@ function toScreen(x, y, z) {
 
 // 「もう一度」：主人公・結晶獣・予告・画面・ロックオンを最初に戻す
 combatHud.onRetry(() => {
+  sound.stopAll();
   sound.play({ name: 'click', group: 'ui' });
   soundCues.reset();
   previousResult = null;
