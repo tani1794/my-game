@@ -6,6 +6,8 @@ import { createBattle } from './combat/battle.js';
 import { BEAST_MAX_HP } from './combat/beastBrain.js';
 import { createTelegraphs } from './world/telegraph.js';
 import { createCombatHud } from './ui/combatHud.js';
+import { createSound } from './audio/sound.js';
+import { createSoundCues } from './audio/soundCues.js';
 import { createFollowCamera } from './camera.js';
 import { createTerrain } from './world/terrain.js';
 import { createLighting } from './world/lighting.js';
@@ -83,6 +85,37 @@ const battle = createBattle({ seed });
 const telegraphs = createTelegraphs(scene, terrain.heightAt);
 // 結晶獣の読み込み前は戦いを始めず、歩くだけにする
 const walkOnly = createPlayerActions();
+
+// ── 音：最初のタッチかキー入力で鳴らせるようにし、風を流す ──
+const SOUND_NAMES = ['swing1', 'swing2', 'swing3', 'hit', 'dodge', 'hurt', 'step', 'warn', 'slam', 'crystal',
+  'charge', 'spin', 'stagger', 'enrage', 'shatter', 'win', 'lose', 'click', 'wind'];
+const sound = createSound();
+const soundCues = createSoundCues();
+let previousResult = null;
+sound.load(SOUND_NAMES);
+sound.startAmbient('wind');
+hud.setMutedIcon(sound.muted());
+
+function unlockSound() {
+  sound.unlock();
+  window.removeEventListener('pointerdown', unlockSound);
+  window.removeEventListener('keydown', unlockSound);
+}
+window.addEventListener('pointerdown', unlockSound);
+window.addEventListener('keydown', unlockSound);
+
+hud.muteButton.addEventListener('pointerdown', (event) => {
+  event.preventDefault();
+  sound.setMuted(!sound.muted());
+  hud.setMutedIcon(sound.muted());
+  sound.play({ name: 'click', group: 'ui' });
+});
+
+// アプリが裏に回ったら音を止め、戻ったら再開する
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) sound.suspend();
+  else sound.resume();
+});
 const followCamera = createFollowCamera(canvas);
 
 // ── 画質：URLで固定されていなければ、fpsを見て自動で下げる ──
@@ -117,7 +150,7 @@ function updateFps(dt) {
   fpsTime += dt;
   if (fpsTime < 0.5) return;
 
-  hud.setFps(`${Math.round(fpsFrames / fpsTime)} fps · ${quality.tier}`);
+  hud.setFps(`${Math.round(fpsFrames / fpsTime)} fps · ${quality.tier} · 音 ${sound.loaded()}/${SOUND_NAMES.length}`);
   fpsFrames = 0;
   fpsTime = 0;
 }
@@ -151,6 +184,9 @@ function toScreen(x, y, z) {
 
 // 「もう一度」：主人公・結晶獣・予告・画面・ロックオンを最初に戻す
 combatHud.onRetry(() => {
+  sound.play({ name: 'click', group: 'ui' });
+  soundCues.reset();
+  previousResult = null;
   seed += 1;
   battle.reset({ seed });
   outcome = 'fighting';
@@ -231,6 +267,9 @@ function stepCombat(dt, time) {
   combatHud.setBeast(result.beast.hp / BEAST_MAX_HP, result.beast.enraged);
   followCamera.setLag(result.player.mode === 'dodge');
   handleEvents(result.events, result.time);
+
+  for (const cue of soundCues.update(dt, previousResult, result, player.object.position)) sound.play(cue);
+  previousResult = result;
 
   // ロックオン：結晶獣を追い続け、照準を出す。離れすぎたら解除
   if (lockOn) {

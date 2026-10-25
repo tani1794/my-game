@@ -22,3 +22,14 @@ test('クエストの進み具合：討伐で 1 / 1、やり直しで 0 / 1', ()
   hud.setQuest(false);
   expect(root.querySelector('.quest .count').textContent).toBe('0 / 1');
 });
+
+test('消音ボタン：消音にすると muted の見た目になり、戻すと外れる', () => {
+  const { hud } = make();
+  expect(hud.muteButton).toBeTruthy();
+  hud.setMutedIcon(true);
+  expect(hud.muteButton.classList.contains('muted')).toBe(true);
+  expect(hud.muteButton.getAttribute('aria-label')).toBe('音を出す');
+  hud.setMutedIcon(false);
+  expect(hud.muteButton.classList.contains('muted')).toBe(false);
+  expect(hud.muteButton.getAttribute('aria-label')).toBe('音を消す');
+});

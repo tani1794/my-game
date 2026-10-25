@@ -11,6 +11,8 @@ const icons = {
   run: icon('<circle cx="14" cy="4.5" r="1.8"/><path d="M8 21l3-6 3 2.5V22M6 11l3-3h4l3 4h3M11 15l1.5-7"/>'),
   dodge: icon('<circle cx="15" cy="4.5" r="1.8"/><path d="M9 21l3-6 3 2.5V22M8 11l2.5-3h4l3 4h3M12 15l1.5-7M2 9h4M1 13h4M3 17h3"/>'),
   crosshair: icon('<circle cx="12" cy="12" r="7"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/><circle cx="12" cy="12" r="1" fill="currentColor"/>'),
+  speaker: icon('<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>'),
+  speakerOff: icon('<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9l5 6M21 9l-5 6"/>'),
   emblem: icon('<path d="M12 2l9 10-9 10-9-10z"/><path d="M12 7l1.6 3.4L17 12l-3.4 1.6L12 17l-1.6-3.4L7 12l3.4-1.6z"/>'),
 };
 
@@ -27,6 +29,8 @@ export function createHud(root) {
         <div class="bar stamina"><span style="width: 100%"></span></div>
       </div>
     </div>
+
+    <button class="mute" aria-label="音を消す">${icons.speaker}</button>
 
     <div class="quest-column">
       <div class="quest plate">${icons.emblem}<span>結晶獣の討伐</span><span class="count">0 / 1</span></div>
@@ -76,6 +80,15 @@ export function createHud(root) {
     staminaBar.style.width = `${Math.max(0, Math.min(100, stamina))}%`;
   }
 
+  const muteButton = hud.querySelector('.mute');
+
+  // 消音ボタンの見た目（消音中は斜線のスピーカー）
+  function setMutedIcon(muted) {
+    muteButton.classList.toggle('muted', muted);
+    muteButton.innerHTML = muted ? icons.speakerOff : icons.speaker;
+    muteButton.setAttribute('aria-label', muted ? '音を出す' : '音を消す');
+  }
+
   function setQuest(done) {
     questCount.textContent = done ? '1 / 1' : '0 / 1';
   }
@@ -101,5 +114,7 @@ export function createHud(root) {
     showNotice,
     setVitals,
     setQuest,
+    muteButton,
+    setMutedIcon,
   };
 }

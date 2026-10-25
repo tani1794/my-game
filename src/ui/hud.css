@@ -88,6 +88,23 @@ html, body, #app {
 .bar.stamina { width: 210px; height: 11px; }
 .bar.stamina span { background: linear-gradient(#f3d27a, var(--stamina)); }
 
+/* ── 左上：消音ボタン（スタミナバーの下） ── */
+.mute {
+  position: absolute;
+  top: calc(var(--edge) + 92px + env(safe-area-inset-top));
+  left: calc(var(--edge) + 6px + env(safe-area-inset-left));
+  width: 34px; height: 34px; padding: 6px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 1px solid #c9a96a88;
+  color: var(--ink);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.mute svg { width: 100%; height: 100%; }
+.mute.muted { color: #e8e2d088; }
+
 /* ── 右上：クエストとミニマップ ── */
 .quest-column {
   position: absolute;
@@ -223,6 +240,7 @@ html, body, #app {
   }
 
   .portrait { width: 64px; height: 64px; }
+  .mute { top: calc(var(--edge) + 70px + env(safe-area-inset-top)); width: 30px; height: 30px; }
   .name { font-size: 13px; }
   .bar.hp { width: 230px; height: 12px; }
   .bar.stamina { width: 160px; height: 10px; }
