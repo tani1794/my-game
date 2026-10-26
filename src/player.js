@@ -18,29 +18,66 @@ export function speedFor({ moveX, moveZ, run }) {
   return WALK_SPEED * Math.min(1, Math.hypot(moveX, moveZ));
 }
 
+// 当たり判定の表面までの距離（主人公の太さを引いた値。負なら入り込んでいる）
+// 円 { x, z, radius } と、向きのある箱 { type: 'box', x, z, hx, hz, angle } に対応する。
+// 箱の angle は three.js の rotation.y と同じ（箱の x 方向は (cos, -sin)、z 方向は (sin, cos)）
+function clearance(collider, x, z) {
+  const dx = x - collider.x;
+  const dz = z - collider.z;
+  if (collider.type !== 'box') return Math.hypot(dx, dz) - collider.radius - PLAYER_RADIUS;
+
+  const cos = Math.cos(collider.angle);
+  const sin = Math.sin(collider.angle);
+  const lx = Math.abs(dx * cos - dz * sin) - collider.hx;
+  const lz = Math.abs(dx * sin + dz * cos) - collider.hz;
+  const outside = Math.hypot(Math.max(lx, 0), Math.max(lz, 0));
+  return (outside > 0 ? outside : Math.max(lx, lz)) - PLAYER_RADIUS;
+}
+
+// 歩ける範囲：数なら原点を中心とした正方形の半径、関数なら (x, z) => 歩けるか
+function inBounds(x, z, bound) {
+  if (typeof bound === 'function') return bound(x, z);
+  return Math.abs(x) <= bound && Math.abs(z) <= bound;
+}
+
 // 当たり判定の外へ出る移動は許す。すでに中に入り込んでいる場合（後から読み込まれた木など）は、
-// 中心から遠ざかる移動だけ許して、閉じ込められないようにする
+// 表面から遠ざかる移動だけ許して、閉じ込められないようにする
 function canMove(fromX, fromZ, x, z, colliders, bound) {
-  if (Math.abs(x) > bound || Math.abs(z) > bound) return false;
+  if (!inBounds(x, z, bound)) return false;
 
   return colliders.every((collider) => {
-    const limit = collider.radius + PLAYER_RADIUS;
-    const after = Math.hypot(x - collider.x, z - collider.z);
-    if (after > limit) return true;
-    return after > Math.hypot(fromX - collider.x, fromZ - collider.z);
+    const after = clearance(collider, x, z);
+    if (after > 0) return true;
+    return after > clearance(collider, fromX, fromZ);
   });
 }
 
-// 当たり判定の円の中に入り込んでいたら、いちばん近い外側へ押し出す（動く結晶獣に重なられたとき用）
+// 当たり判定の中に入り込んでいたら、いちばん近い外側へ押し出す（動く結晶獣に重なられたとき用）
 export function pushOut(pos, colliders) {
   let { x, z } = pos;
   for (let pass = 0; pass < 4; pass++) {
     for (const c of colliders) {
+      if (clearance(c, x, z) >= 0) continue;
+      if (c.type === 'box') {
+        // 箱の中：近い方の面の外へ出す
+        const cos = Math.cos(c.angle);
+        const sin = Math.sin(c.angle);
+        const dx = x - c.x;
+        const dz = z - c.z;
+        let lx = dx * cos - dz * sin;
+        let lz = dx * sin + dz * cos;
+        const outX = c.hx + PLAYER_RADIUS - Math.abs(lx);
+        const outZ = c.hz + PLAYER_RADIUS - Math.abs(lz);
+        if (outX < outZ) lx = Math.sign(lx || 1) * (c.hx + PLAYER_RADIUS);
+        else lz = Math.sign(lz || 1) * (c.hz + PLAYER_RADIUS);
+        x = c.x + lx * cos + lz * sin;
+        z = c.z - lx * sin + lz * cos;
+        continue;
+      }
       const limit = c.radius + PLAYER_RADIUS;
       const dx = x - c.x;
       const dz = z - c.z;
       const d = Math.hypot(dx, dz);
-      if (d >= limit) continue;
       const nx = d > 1e-6 ? dx / d : 1;
       const nz = d > 1e-6 ? dz / d : 0;
       x = c.x + nx * limit;
@@ -51,6 +88,7 @@ export function pushOut(pos, colliders) {
 }
 
 // x と z を別々に判定して、ぶつかった方向だけ止める（壁沿いに滑る）
+// bound は歩ける範囲（数か関数。上の inBounds）
 export function stepPosition(pos, dir, distance, colliders, bound = 28) {
   let { x, z } = pos;
 
@@ -159,7 +197,8 @@ export function createPlayer(scene) {
   }
 
   // 戦いの状態（playerActions の frame）に合わせて、動かし、向きを変え、アニメーションを切り替える
-  function drive(dt, frame, colliders, heightAt) {
+  // bound：歩ける範囲（数か関数）。結晶獣戦は 28m の正方形、物語パートは地図の関数
+  function drive(dt, frame, colliders, heightAt, bound = 28) {
     if (mixer) {
       const quick = frame.mode === 'attack' || frame.mode === 'dodge';
       play(frame.animation, quick ? QUICK_FADE_SECONDS : FADE_SECONDS);
@@ -168,7 +207,7 @@ export function createPlayer(scene) {
 
     const moving = frame.mode !== 'dead' && frame.move.speed > 0;
     if (moving) {
-      const next = stepPosition(object.position, frame.move, frame.move.speed * dt, colliders);
+      const next = stepPosition(object.position, frame.move, frame.move.speed * dt, colliders, bound);
       object.position.x = next.x;
       object.position.z = next.z;
     }

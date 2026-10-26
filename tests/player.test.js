@@ -159,3 +159,35 @@ test('結晶獣の体の中に入り込んだら、いちばん近い外側へ�
   for (const c of body) expect(Math.hypot(out.x - c.x, out.z - c.z)).toBeGreaterThanOrEqual(c.radius + 0.4 - 1e-6);
   expect(pushOut({ x: 10, z: 0 }, body)).toEqual({ x: 10, z: 0 });
 });
+
+// ── 第一章：壁（向きのある箱）と、歩ける範囲を関数で渡す ──
+test('壁の箱には入れず、壁沿いに滑る（入れないのは箱の形のとおり）', () => {
+  // 箱の端の外側は通れる
+  const short = [{ type: 'box', x: 0, z: -1, hx: 0.5, hz: 0.3, angle: 0 }];
+  expect(stepPosition({ x: 1.2, z: 0 }, { x: 0, z: -1 }, 0.5, short).z).toBe(-0.5);
+  const wall = [{ type: 'box', x: 0, z: -1, hx: 3, hz: 0.3, angle: 0 }];
+  expect(stepPosition({ x: 0, z: 0 }, { x: 0, z: -1 }, 0.5, wall)).toEqual({ x: 0, z: 0 });
+  const slid = stepPosition({ x: 0, z: 0 }, { x: Math.SQRT1_2, z: -Math.SQRT1_2 }, 0.6, wall);
+  expect(slid.x).toBeGreaterThan(0);
+  expect(slid.z).toBe(0);
+});
+
+test('斜めに置いた壁も、向きどおりに塞ぐ', () => {
+  // 進む向き（右前）に垂直な壁（長さ 6、厚み 0.6）。原点の右前 1.4m の所
+  const wall = [{ type: 'box', x: 1, z: -1, hx: 3, hz: 0.3, angle: -Math.PI / 4 }];
+  const next = stepPosition({ x: 0, z: 0 }, { x: Math.SQRT1_2, z: -Math.SQRT1_2 }, 1, wall);
+  expect(Math.hypot(next.x - 1, next.z + 1)).toBeGreaterThan(0.6);
+});
+
+test('歩ける範囲を関数で渡すと、その外へは出ない', () => {
+  const inside = (x, z) => x < 5 && z > -100;
+  expect(stepPosition({ x: 4.8, z: 0 }, { x: 1, z: 0 }, 0.5, [], inside).x).toBe(4.8);
+  expect(stepPosition({ x: 40, z: 0 }, { x: 0, z: -1 }, 0.5, [], () => true).z).toBe(-0.5);
+});
+
+test('箱に入り込んだら、いちばん近い外側へ押し出す', () => {
+  const wall = [{ type: 'box', x: 0, z: 0, hx: 2, hz: 0.3, angle: 0 }];
+  const out = pushOut({ x: 0.5, z: 0.1 }, wall);
+  expect(out.x).toBeCloseTo(0.5);
+  expect(out.z).toBeCloseTo(0.7);
+});
