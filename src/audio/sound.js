@@ -1,4 +1,4 @@
-// 効果音と環境音を鳴らす係（Web Audio）。
+// 効果音・環境音・曲を鳴らす係（Web Audio）。
 // iPhone では最初のタッチまで音を出せないので、unlock() されるまで鳴らさない。
 import { mulberry32 } from '../world/random.js';
 import { asset } from '../paths.js';
@@ -6,6 +6,7 @@ import { asset } from '../paths.js';
 const MASTER = 0.8;
 const GROUP = { player: 0.7, beast: 0.9, ui: 0.4 };
 const AMBIENT = 0.25;
+const MUSIC = 0.35;
 // 結晶獣の音は離れるほど小さく：6m 以内は 1、25m で 0.4（その先も 0.4）
 const NEAR = 6;
 const FAR = 25;
@@ -47,6 +48,9 @@ export function createSound({
   let isMuted = readMuted(storage);
   let ambientName = null;
   let ambientSource = null;
+  // 流したい曲（読み込みやタッチがまだなら、準備ができたときに始める）と、今流れている曲
+  let wantedMusic = null;
+  let music = null;
 
   // AudioContext はタッチ前でも作れる（止まった状態で）。読み込みのために先に作る
   function ensureContext() {
@@ -74,6 +78,7 @@ export function createSound({
     ensureContext();
     await Promise.all(names.map(loadOne));
     if (unlocked && ambientName && !ambientSource) startAmbient(ambientName);
+    if (!music) startWantedMusic(1);
   }
 
   // 最初のタッチ・キー入力の中で呼ぶ
@@ -83,6 +88,7 @@ export function createSound({
     unlocked = true;
     if (!suspended && ctx.state !== 'running') ctx.resume();
     if (ambientName && !ambientSource) startAmbient(ambientName);
+    if (!music) startWantedMusic(1);
   }
 
   function play(cue) {
@@ -143,6 +149,55 @@ export function createSound({
     ambientSource.start();
   }
 
+  function startWantedMusic(fade) {
+    if (!unlocked || !wantedMusic) return;
+    const buffer = buffers.get(wantedMusic.name);
+    if (!buffer) return;
+
+    const now = ctx.currentTime;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(MUSIC, now + fade);
+    gain.connect(master);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    // 繰り返す範囲は秒で指定する（m4a の最後に付く短い無音を飛ばし、継ぎ目で途切れないように）
+    source.loopStart = wantedMusic.loopStart;
+    source.loopEnd = wantedMusic.loopEnd;
+    source.connect(gain);
+    source.onended = () => {
+      source.disconnect();
+      gain.disconnect();
+    };
+    source.start();
+    music = { source, gain };
+  }
+
+  function fadeOutMusic(fade) {
+    if (!music) return;
+    const now = ctx.currentTime;
+    const { gain } = music.gain;
+    gain.cancelScheduledValues(now);
+    gain.setValueAtTime(gain.value, now);
+    gain.linearRampToValueAtTime(0, now + fade);
+    music.source.stop(now + fade);
+    music = null;
+  }
+
+  // 曲を流す（繰り返し）。別の曲が流れていれば fade 秒かけて入れ替える。同じ曲なら何もしない
+  function playMusic(name, { loopStart = 0, loopEnd = 0, fade = 1.5 } = {}) {
+    if (wantedMusic?.name === name) return;
+    wantedMusic = { name, loopStart, loopEnd };
+    fadeOutMusic(fade);
+    startWantedMusic(fade);
+  }
+
+  function stopMusic(fade = 1.5) {
+    wantedMusic = null;
+    fadeOutMusic(fade);
+  }
+
   function setMuted(value) {
     isMuted = value;
     if (master) master.gain.value = isMuted ? 0 : MASTER;
@@ -164,5 +219,5 @@ export function createSound({
     if (unlocked) ctx?.resume();
   }
 
-  return { unlock, load, play, stopAll, startAmbient, setMuted, muted: () => isMuted, suspend, resume, loaded: () => buffers.size };
+  return { unlock, load, play, stopAll, startAmbient, playMusic, stopMusic, setMuted, muted: () => isMuted, suspend, resume, loaded: () => buffers.size };
 }

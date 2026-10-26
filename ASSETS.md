@@ -13,5 +13,8 @@
 | 地面のテクスチャ（草・土・小石・苔） | Artlist / Nano Banana 2（text-to-image、1:1、無料枠の最後の1回）で生成 | AI生成（Artlist の利用規約に従う） | `public/textures/ground.webp`（1024px。元データ `assets-src/packs/ground/ground-raw.png` はリポジトリ外） |
 | 効果音の素材（Kenney Impact Sounds・RPG Audio・Interface Sounds・Music Jingles） | https://kenney.nl/assets/impact-sounds ほか同ページ群 | CC0 1.0（各パックの License.txt で確認） | `public/sounds/*.m4a` の素材（`scripts/build-sounds.py` で重ねて書き出し。元データ `assets-src/packs/sounds/` はリポジトリ外） |
 | 合成した効果音（風切り・地響き・うなり・予告の合図・風） | `scripts/build-sounds.py` でコードから合成 | 自作 | `public/sounds/swing*.m4a`・`spin`・`charge`・`enrage`・`warn`・`wind` ほか（素材と重ねたものを含む） |
+| 戦闘曲 D：Boss Battle #2 [Symphonic Metal]（nene） | https://opengameart.org/node/84428 | CC0（ページで確認） | `public/sounds/music-d.m4a`（前奏＋繰り返し部分を1つに。`scripts/build-music.py`） |
+| 戦闘曲 C：Heavy Battle Music（Davieplier） | https://opengameart.org/content/heavy-battle-music | CC0（ページで確認） | `public/sounds/music-c.m4a` |
+| 戦闘曲 A：Determined Pursuit（Emma_MA） | https://opengameart.org/content/determined-pursuit-epic-orchestra-loop | CC0（ページで確認） | `public/sounds/music-a.m4a` |
 | タイトル画像（4枚：静かな対峙・結晶が光る・稲妻・剣と前脚の衝突） | 作者（ユーザー）が用意したキービジュアル（2026-10-26 にチャットで受け取り。元の絵は `assets-src/packs/title/`、リポジトリ外） | 作者提供（作者の確認のもと公開） | `public/textures/title-calm.webp`・`title-glow.webp`・`title-surge.webp`（ロゴを消した絵）、`title-clash.webp`、`title-logo.webp`（calm の絵からロゴだけを色で切り出したもの） |
 | タイトルの奥行きの地図（4枚） | 上の絵から Depth Anything V2 Small（https://huggingface.co/depth-anything/Depth-Anything-V2-Small 、ONNX版 onnx-community/depth-anything-v2-small）で推定し、`scripts/build-title-slides.py` で手直し | モデルは Apache-2.0。出力の地図は自作素材の派生 | `public/textures/title-*-depth.png`（R=奥行き、G=結晶の光る場所。836×470） |

@@ -12,7 +12,17 @@ function fakeAudio() {
     resume: vi.fn(async () => { ctx.state = 'running'; }),
     suspend: vi.fn(async () => { ctx.state = 'suspended'; }),
     createGain() {
-      const node = { gain: { value: 1 }, connect: vi.fn(() => node), disconnect: vi.fn() };
+      const node = {
+        gain: {
+          value: 1,
+          ramps: [],
+          setValueAtTime: vi.fn((value) => { node.gain.value = value; }),
+          linearRampToValueAtTime: vi.fn((value, time) => { node.gain.ramps.push({ value, time }); }),
+          cancelScheduledValues: vi.fn(),
+        },
+        connect: vi.fn(() => node),
+        disconnect: vi.fn(),
+      };
       gains.push(node);
       return node;
     },
@@ -20,6 +30,8 @@ function fakeAudio() {
       const source = {
         buffer: null,
         loop: false,
+        loopStart: 0,
+        loopEnd: 0,
         playbackRate: { value: 1 },
         connect: vi.fn(() => source),
         start: vi.fn(),
@@ -197,4 +209,78 @@ test('stopAll で鳴っている効果音を止める（環境音は止めない
   expect(hit.stop).toHaveBeenCalled();
   expect(swing.stop).toHaveBeenCalled();
   expect(wind.stop).not.toHaveBeenCalled();
+});
+
+// ── 曲 ──
+test('曲は繰り返し再生し、繰り返す範囲を指定できる。音量は 0 から上げる', async () => {
+  const audio = fakeAudio();
+  const sound = createSound({ context: () => audio.ctx, fetch: okFetch, storage: memoryStorage() });
+  await sound.load(['music-d']);
+  sound.unlock();
+  audio.ctx.currentTime = 10;
+  sound.playMusic('music-d', { loopStart: 39.7, loopEnd: 66.2, fade: 1 });
+  const source = audio.sources[audio.sources.length - 1];
+  expect(source.loop).toBe(true);
+  expect(source.loopStart).toBe(39.7);
+  expect(source.loopEnd).toBe(66.2);
+  expect(source.start).toHaveBeenCalled();
+  const gain = audio.gains[audio.gains.length - 1];
+  expect(gain.gain.value).toBe(0);
+  expect(gain.gain.ramps).toContainEqual({ value: 0.35, time: 11 });
+});
+
+test('別の曲へ切り替えると、前の曲は fade 秒で消えて止まる', async () => {
+  const { ctx, sources, gains, sound } = await ready(['music-d', 'music-c']);
+  ctx.currentTime = 5;
+  sound.playMusic('music-d', { fade: 0.3 });
+  const first = sources[sources.length - 1];
+  const firstGain = gains[gains.length - 1];
+  ctx.currentTime = 20;
+  sound.playMusic('music-c', { fade: 1.5 });
+  expect(firstGain.gain.ramps).toContainEqual({ value: 0, time: 21.5 });
+  expect(first.stop).toHaveBeenCalledWith(21.5);
+  const second = sources[sources.length - 1];
+  expect(second).not.toBe(first);
+  expect(second.loop).toBe(true);
+});
+
+test('同じ曲をもう一度指定しても、最初からにはしない', async () => {
+  const { sources, sound } = await ready(['music-d']);
+  sound.playMusic('music-d');
+  const count = sources.length;
+  sound.playMusic('music-d');
+  expect(sources.length).toBe(count);
+});
+
+test('stopMusic で曲を fade 秒で消して止める', async () => {
+  const { ctx, sources, gains, sound } = await ready(['music-a']);
+  sound.playMusic('music-a');
+  const source = sources[sources.length - 1];
+  const gain = gains[gains.length - 1];
+  ctx.currentTime = 30;
+  sound.stopMusic(2.5);
+  expect(gain.gain.ramps).toContainEqual({ value: 0, time: 32.5 });
+  expect(source.stop).toHaveBeenCalledWith(32.5);
+});
+
+test('タッチ前や読み込み前に頼まれた曲は、準備ができたときに始める', async () => {
+  const audio = fakeAudio();
+  const sound = createSound({ context: () => audio.ctx, fetch: okFetch, storage: memoryStorage() });
+  sound.playMusic('music-d', { loopStart: 1, loopEnd: 2 });
+  expect(started(audio.sources)).toHaveLength(0);
+  await sound.load(['music-d']);
+  expect(started(audio.sources)).toHaveLength(0);
+  sound.unlock();
+  const source = audio.sources.find((s) => s.loop && s.start.mock.calls.length > 0 && s.loopEnd === 2);
+  expect(source).toBeDefined();
+});
+
+test('曲を止めたあとは、準備ができても始めない', async () => {
+  const audio = fakeAudio();
+  const sound = createSound({ context: () => audio.ctx, fetch: okFetch, storage: memoryStorage() });
+  sound.playMusic('music-d');
+  sound.stopMusic();
+  await sound.load(['music-d']);
+  sound.unlock();
+  expect(audio.sources.filter((s) => s.loop && s.start.mock.calls.length > 0)).toHaveLength(0);
 });

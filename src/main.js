@@ -8,6 +8,7 @@ import { createTelegraphs } from './world/telegraph.js';
 import { createCombatHud } from './ui/combatHud.js';
 import { createSound } from './audio/sound.js';
 import { createSoundCues } from './audio/soundCues.js';
+import { createBattleMusic, MUSIC_TRACKS } from './audio/music.js';
 import { createFollowCamera } from './camera.js';
 import { createTerrain } from './world/terrain.js';
 import { createLighting } from './world/lighting.js';
@@ -125,8 +126,9 @@ const SOUND_NAMES = ['swing1', 'swing2', 'swing3', 'hit', 'dodge', 'hurt', 'step
   'charge', 'spin', 'stagger', 'enrage', 'shatter', 'win', 'lose', 'click', 'wind'];
 const sound = createSound();
 const soundCues = createSoundCues();
+const battleMusic = createBattleMusic(sound);
 let previousResult = null;
-sound.load(SOUND_NAMES);
+sound.load([...SOUND_NAMES, ...Object.keys(MUSIC_TRACKS)]);
 sound.startAmbient('wind');
 hud.setMutedIcon(sound.muted());
 
@@ -190,7 +192,7 @@ function updateFps(dt) {
   fpsTime += dt;
   if (fpsTime < 0.5) return;
 
-  hud.setFps(`${Math.round(fpsFrames / fpsTime)} fps · ${quality.tier} · 音 ${sound.loaded()}/${SOUND_NAMES.length}`);
+  hud.setFps(`${Math.round(fpsFrames / fpsTime)} fps · ${quality.tier} · 音 ${sound.loaded()}/${SOUND_NAMES.length + Object.keys(MUSIC_TRACKS).length}`);
   fpsFrames = 0;
   fpsTime = 0;
 }
@@ -240,6 +242,7 @@ function go(action) {
 // 主人公・結晶獣・予告・画面・ロックオン・入力を最初に戻す
 function resetFight() {
   sound.stopAll();
+  battleMusic.stop();
   soundCues.reset();
   previousResult = null;
   seed += 1;
@@ -262,6 +265,7 @@ function resetFight() {
 function beginFight() {
   resetFight();
   tutorial.start(records.countPlay() <= TUTORIAL_PLAYS);
+  battleMusic.start();
   autoDowngrade?.reset();
   clickSound();
 }
@@ -358,12 +362,14 @@ function handleEvents(events, time) {
       go('finish');
       hud.setQuest(true);
       combatHud.showResult('won', time, records.submit(time));
+      battleMusic.finish();
       setLock(false);
       tutorialView.show(null);
     } else if (event.type === 'lost') {
       outcome = 'lost';
       go('finish');
       combatHud.showResult('lost');
+      battleMusic.finish();
       setLock(false);
       tutorialView.show(null);
     }
@@ -416,6 +422,7 @@ function stepCombat(dt, time) {
   telegraphs.sync(result.beast.attack, result.beast.enraged);
   hud.setVitals(result.player.hp, result.player.stamina);
   combatHud.setBeast(result.beast.hp / BEAST_MAX_HP, result.beast.enraged);
+  battleMusic.update(result.beast.hp / BEAST_MAX_HP);
   followCamera.setLag(result.player.mode === 'dodge');
   handleEvents(result.events, result.time);
 
