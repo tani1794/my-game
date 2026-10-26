@@ -302,7 +302,8 @@ pauseMenu.on('quality', (tier) => {
 
 // パソコンでは Esc で一時停止・再開
 window.addEventListener('keydown', (event) => {
-  if (event.code !== 'Escape') return;
+  // 押しっぱなしの繰り返しは数えない（止めたつもりが再開しないように）
+  if (event.code !== 'Escape' || event.repeat) return;
   if (state === 'playing') pause();
   else if (state === 'paused' && leavePause('resume')) clickSound();
 });
