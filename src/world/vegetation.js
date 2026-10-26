@@ -2,19 +2,20 @@ import * as THREE from 'three';
 import { loadGLTF, measureModel, withFallback } from '../assets.js';
 import { mulberry32 } from './random.js';
 import { distanceToPath, isOnPath } from './terrain.js';
+import { asset } from '../paths.js';
 
 const MAX_GRASS = 6000;
 const AREA_RADIUS = 23.5;
 const ARCH_COLUMNS = [-7, -3, 3, 7].map((x) => ({ x, z: -14 }));
 
-const TREE_MODELS = ['/models/nature/pine_tall.glb', '/models/nature/pine_default.glb', '/models/nature/pine_round.glb'];
-const ROCK_MODELS = ['/models/nature/stone_a.glb', '/models/nature/stone_c.glb', '/models/nature/stone_e.glb'];
+const TREE_MODELS = [asset('models/nature/pine_tall.glb'), asset('models/nature/pine_default.glb'), asset('models/nature/pine_round.glb')];
+const ROCK_MODELS = [asset('models/nature/stone_a.glb'), asset('models/nature/stone_c.glb'), asset('models/nature/stone_e.glb')];
 // 素材の石は青白いので、アーチや崖に合わせた暖かい灰色に塗り直す
 const ROCK_COLOR = '#9a958c';
 // 素材の木は幹が明るいオレンジでおもちゃっぽいので、焦げ茶の幹と深い緑の葉にする
 const TRUNK_COLOR = '#4a3a2a';
 const LEAF_COLOR = '#2f5a3a';
-const FLOWER_MODEL = '/models/nature/flower_purple.glb';
+const FLOWER_MODEL = asset('models/nature/flower_purple.glb');
 
 const near = (x, z, cx, cz, r) => Math.hypot(x - cx, z - cz) < r;
 

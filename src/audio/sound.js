@@ -1,6 +1,7 @@
 // 効果音と環境音を鳴らす係（Web Audio）。
 // iPhone では最初のタッチまで音を出せないので、unlock() されるまで鳴らさない。
 import { mulberry32 } from '../world/random.js';
+import { asset } from '../paths.js';
 
 const MASTER = 0.8;
 const GROUP = { player: 0.7, beast: 0.9, ui: 0.4 };
@@ -32,7 +33,7 @@ export function createSound({
   context = () => new AudioContext(),
   fetch = (...args) => window.fetch(...args),
   storage = (() => { try { return window.localStorage; } catch { return null; } })(),
-  base = '/sounds/',
+  base = asset('sounds/'),
 } = {}) {
   const buffers = new Map();
   const lastPlayed = new Map();

@@ -1,5 +1,6 @@
 import '@fontsource/cinzel/latin-600.css';
 import './hud.css';
+import { asset } from '../paths.js';
 
 // ── アイコン（線で描くSVG） ──
 const icon = (body) => `
@@ -22,7 +23,7 @@ export function createHud(root) {
   hud.className = 'hud';
   hud.innerHTML = `
     <div class="status">
-      <div class="portrait"><img src="/textures/portrait.png" alt=""></div>
+      <div class="portrait"><img src="${asset('textures/portrait.png')}" alt=""></div>
       <div class="bars">
         <div class="name plate">YUTO</div>
         <div class="bar hp"><span style="width: 100%"></span></div>

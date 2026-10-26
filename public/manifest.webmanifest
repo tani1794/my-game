@@ -1,12 +1,13 @@
 {
   "name": "OBLIVION ARENA",
   "short_name": "OBLIVION ARENA",
-  "start_url": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "fullscreen",
   "orientation": "landscape",
   "background_color": "#101b26",
   "theme_color": "#101b26",
   "icons": [
-    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
   ]
 }

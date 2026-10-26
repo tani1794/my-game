@@ -22,6 +22,7 @@ import { QUALITY_PRESETS, resolveQuality, createAutoDowngrade } from './quality.
 import { createStick } from './ui/stick.js';
 import { createHud } from './ui/hud.js';
 import { createMinimap } from './ui/minimap.js';
+import { asset } from './paths.js';
 
 // 結晶獣の位置（ミニマップ・土ぼこり・ロックオンが読む。毎 frame、結晶獣の今の位置を書き写す）
 const BEAST_POSITION = { x: 0, z: -6 };
@@ -50,24 +51,24 @@ const colliders = [...terrain.colliders, ...ruins.colliders];
 
 // 地面の画像：読めないときは、頂点色だけの地面のまま続ける
 new THREE.TextureLoader()
-  .loadAsync('/textures/ground.webp')
+  .loadAsync(asset('textures/ground.webp'))
   .then((texture) => terrain.setGroundTexture(texture))
   .catch((error) => console.warn('地面の画像を読み込めませんでした', error));
 
 // 遠景：画像が無い・読めないときは、コードで作る空と山にする
 withFallback(
-  createBackdrop(scene, '/textures/backdrop.webp'),
+  createBackdrop(scene, asset('textures/backdrop.webp')),
   () => createFallbackBackdrop(scene),
 );
 const player = createPlayer(scene);
 // 開始位置：道の手前から、奥の結晶獣を向く
 player.object.position.set(0, 0, 6);
 player.object.rotation.y = Math.PI;
-player.load('/models/knight.glb');
+player.load(asset('models/knight.glb'));
 
 // 結晶獣：読み込めたら当たり判定に加える（失敗時はコードで作る獣になる）
 let beast = null;
-createBeast(scene, '/models/beast.glb', terrain.heightAt).then((loaded) => {
+createBeast(scene, asset('models/beast.glb'), terrain.heightAt).then((loaded) => {
   beast = loaded;
   // 結晶獣の当たり判定は、動くたびに中身が書き換わる（同じ配列のまま）
   colliders.push(...loaded.colliders);
@@ -296,7 +297,12 @@ document.addEventListener('visibilitychange', clearInput);
 let lastTime = performance.now();
 
 function animate(now) {
-  requestAnimationFrame(animate);
+  // 公開版では、一度開いたら通信なしでも遊べるようにする
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register(asset('sw.js')).catch((error) => console.warn('オフライン対応を有効にできませんでした', error));
+}
+
+requestAnimationFrame(animate);
   const rawDt = (now - lastTime) / 1000;
   const dt = Math.min(rawDt, 0.05);
   lastTime = now;
@@ -336,5 +342,10 @@ function resize() {
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', resize);
 window.visualViewport?.addEventListener('resize', resize);
+
+// 公開版では、一度開いたら通信なしでも遊べるようにする
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register(asset('sw.js')).catch((error) => console.warn('オフライン対応を有効にできませんでした', error));
+}
 
 requestAnimationFrame(animate);
