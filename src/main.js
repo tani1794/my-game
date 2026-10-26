@@ -8,7 +8,7 @@ import { createTelegraphs } from './world/telegraph.js';
 import { createCombatHud } from './ui/combatHud.js';
 import { createSound } from './audio/sound.js';
 import { createSoundCues } from './audio/soundCues.js';
-import { createBattleMusic, MUSIC_TRACKS } from './audio/music.js';
+import { createBattleMusic, playTitleMusic, MUSIC_TRACKS } from './audio/music.js';
 import { createFollowCamera } from './camera.js';
 import { createTerrain } from './world/terrain.js';
 import { createLighting } from './world/lighting.js';
@@ -286,6 +286,7 @@ function beginFight() {
 
 function showTitle() {
   resetFight();
+  playTitleMusic(sound);
   titleScreen.show(records.best());
 }
 
@@ -361,6 +362,7 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+playTitleMusic(sound);
 titleScreen.show(records.best());
 
 function handleEvents(events, time) {

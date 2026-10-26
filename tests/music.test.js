@@ -1,5 +1,5 @@
 import { test, expect, vi } from 'vitest';
-import { musicFor, createBattleMusic, MUSIC_TRACKS } from '../src/audio/music.js';
+import { musicFor, createBattleMusic, playTitleMusic, MUSIC_TRACKS } from '../src/audio/music.js';
 
 test('結晶獣の体力：半分より多い D、半分以下で C、3分の1以下で A', () => {
   expect(musicFor(1)).toBe('music-d');
@@ -71,4 +71,11 @@ test('やり直し・タイトルへ：すぐ止め、次の start でまた D �
   expect(sound.stopMusic).toHaveBeenLastCalledWith(0.3);
   music.start();
   expect(sound.playMusic).toHaveBeenLastCalledWith('music-d', expect.anything());
+});
+
+test('タイトル曲：全体を繰り返し、2秒かけて入る', () => {
+  expect(MUSIC_TRACKS['music-title']).toEqual({ loopStart: 0, loopEnd: 3941627 / 44100 });
+  const sound = fakeSound();
+  playTitleMusic(sound);
+  expect(sound.playMusic).toHaveBeenCalledWith('music-title', { ...MUSIC_TRACKS['music-title'], fade: 2 });
 });

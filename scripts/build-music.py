@@ -1,7 +1,8 @@
-# 戦闘曲（CC0、OpenGameArt）を、ゲーム用の m4a に書き出す。
+# 戦闘曲とタイトル曲（CC0、OpenGameArt）を、ゲーム用の m4a に書き出す。
 #   music-d：Boss Battle #2（nene）前奏＋繰り返し部分を1つのファイルに（繰り返しは前奏のあとから）
 #   music-c：Heavy Battle Music（Davieplier）
 #   music-a：Determined Pursuit（Emma_MA）
+#   music-title：Vampire's Piano（TAD）タイトル画面の曲
 # 3曲の音量（RMS）をそろえる。繰り返しの位置は src/audio/music.js の MUSIC_TRACKS に書く。
 # 使い方: python3 scripts/build-music.py  （素材は assets-src/packs/music/。macOS の afconvert を使う）
 import os, subprocess, tempfile, wave
@@ -45,3 +46,4 @@ print(f'music-d intro: {len(intro)} samples = {len(intro) / SR:.4f} s')
 write('music-d', np.concatenate([intro, loop]))
 write('music-c', read(f'{SRC}/heavy/battle1.mp3'))
 write('music-a', read(f'{SRC}/pursuit/determined_pursuit_loop.wav'))
+write('music-title', read(f'{SRC}/title/vampire.wav'))
