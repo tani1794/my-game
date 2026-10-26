@@ -13,9 +13,9 @@
 | 地面のテクスチャ（草・土・小石・苔） | Artlist / Nano Banana 2（text-to-image、1:1、無料枠の最後の1回）で生成 | AI生成（Artlist の利用規約に従う） | `public/textures/ground.webp`（1024px。元データ `assets-src/packs/ground/ground-raw.png` はリポジトリ外） |
 | 効果音の素材（Kenney Impact Sounds・RPG Audio・Interface Sounds・Music Jingles） | https://kenney.nl/assets/impact-sounds ほか同ページ群 | CC0 1.0（各パックの License.txt で確認） | `public/sounds/*.m4a` の素材（`scripts/build-sounds.py` で重ねて書き出し。元データ `assets-src/packs/sounds/` はリポジトリ外） |
 | 合成した効果音（風切り・地響き・うなり・予告の合図・風） | `scripts/build-sounds.py` でコードから合成 | 自作 | `public/sounds/swing*.m4a`・`spin`・`charge`・`enrage`・`warn`・`wind` ほか（素材と重ねたものを含む） |
-| 戦闘曲 D：Boss Battle #2 [Symphonic Metal]（nene） | https://opengameart.org/node/84428 | CC0（ページで確認） | `public/sounds/music-d.m4a`（前奏＋繰り返し部分を1つに。`scripts/build-music.py`） |
-| 戦闘曲 C：Heavy Battle Music（Davieplier） | https://opengameart.org/content/heavy-battle-music | CC0（ページで確認） | `public/sounds/music-c.m4a` |
-| 戦闘曲 A：Determined Pursuit（Emma_MA） | https://opengameart.org/content/determined-pursuit-epic-orchestra-loop | CC0（ページで確認） | `public/sounds/music-a.m4a` |
+| 戦闘曲 D：Boss Battle #2 [Symphonic Metal]（nene） | https://opengameart.org/node/84428 | CC0（ページで確認） | `public/sounds/music-d.m4a`（前奏＋繰り返し部分を1つに。タイトル曲に寄せて暗く加工。`scripts/build-music.py`） |
+| 戦闘曲 C：Heavy Battle Music（Davieplier） | https://opengameart.org/content/heavy-battle-music | CC0（ページで確認） | `public/sounds/music-c.m4a`（暗く加工） |
+| 戦闘曲 A：Determined Pursuit（Emma_MA） | https://opengameart.org/content/determined-pursuit-epic-orchestra-loop | CC0（ページで確認） | `public/sounds/music-a.m4a`（暗く加工） |
 | タイトル曲：Vampire's Piano（TAD） | https://opengameart.org/node/115915 | CC0（ページで確認） | `public/sounds/music-title.m4a`（`scripts/build-music.py`） |
 | タイトル画像「THE SILENT CROWN」（王冠の騎士・森・霧の谷・古城、題字入り） | 作者（ユーザー）が ChatGPT で用意したキービジュアル（2026-10-26 にチャットで受け取り。元の絵は `assets-src/packs/title/silent.png`、リポジトリ外） | 作者提供（作者の確認のもと公開） | `public/textures/silent-art.webp`（題字を消した絵）、`public/textures/silent-title.webp`（元の題字を色で切り出した透過画像） |
 | 題字を消した跡の穴埋め | LaMa（big-lama、ONNX 版 https://huggingface.co/Carve/LaMa-ONNX ）を Mac 上で実行。`scripts/build-silent-title.py` | モデルは Apache-2.0。出力は自作素材の派生 | `public/textures/silent-art.webp` |

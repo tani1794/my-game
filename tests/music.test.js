@@ -11,10 +11,10 @@ test('結晶獣の体力：半分より多い D、半分以下で C、3分の1�
 });
 
 test('曲ごとの繰り返しの範囲：D は前奏のあと、C と A は全体', () => {
-  expect(MUSIC_TRACKS['music-d'].loopStart).toBeCloseTo(1751835 / 44100, 4);
-  expect(MUSIC_TRACKS['music-d'].loopEnd).toBeCloseTo(2919725 / 44100, 4);
-  expect(MUSIC_TRACKS['music-c']).toEqual({ loopStart: 0, loopEnd: 836352 / 44100 });
-  expect(MUSIC_TRACKS['music-a']).toEqual({ loopStart: 0, loopEnd: 4762800 / 44100 });
+  expect(MUSIC_TRACKS['music-d'].loopStart).toBeCloseTo(1946483 / 44100, 4);
+  expect(MUSIC_TRACKS['music-d'].loopEnd).toBeCloseTo(3244138 / 44100, 4);
+  expect(MUSIC_TRACKS['music-c']).toEqual({ loopStart: 0, loopEnd: 929280 / 44100 });
+  expect(MUSIC_TRACKS['music-a']).toEqual({ loopStart: 0, loopEnd: 5292000 / 44100 });
 });
 
 function fakeSound() {

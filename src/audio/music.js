@@ -1,12 +1,13 @@
 // 曲：タイトルは Vampire's Piano。戦闘曲は結晶獣の体力に合わせて、D（Boss Battle #2）→ C（Heavy Battle Music）→ A（Determined Pursuit）と切り替える。
+// 戦闘曲の3曲は、タイトル曲に寄せて暗く作り替えたもの（scripts/build-music.py）
 // 鳴らすのは sound.js。ここは「今どの曲か」を決めるだけ。
 const SR = 44100;
 
 // 繰り返す範囲（秒）。数字は scripts/build-music.py が書き出したときのサンプル数
 export const MUSIC_TRACKS = {
-  'music-d': { loopStart: 1751835 / SR, loopEnd: 2919725 / SR },
-  'music-c': { loopStart: 0, loopEnd: 836352 / SR },
-  'music-a': { loopStart: 0, loopEnd: 4762800 / SR },
+  'music-d': { loopStart: 1946483 / SR, loopEnd: 3244138 / SR },
+  'music-c': { loopStart: 0, loopEnd: 929280 / SR },
+  'music-a': { loopStart: 0, loopEnd: 5292000 / SR },
   'music-title': { loopStart: 0, loopEnd: 3941627 / SR },
 };
 
