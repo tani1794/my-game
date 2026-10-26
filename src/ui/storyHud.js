@@ -49,6 +49,7 @@ export function createStoryHud(root) {
 
     <div class="story-advance" hidden>
       <span class="story-advance-hint">タップで次へ ▸</span>
+      <button class="story-skip" type="button" hidden>スキップ ▸▸</button>
     </div>
 
     <div class="story-chapter" hidden></div>
@@ -67,6 +68,8 @@ export function createStoryHud(root) {
   const logCloseButton = hud.querySelector('.story-log-close');
   const logEntries = hud.querySelector('.story-log-entries');
   const advanceLayer = hud.querySelector('.story-advance');
+  const skipButton = hud.querySelector('.story-skip');
+  const skipCallbacks = [];
   const fadeLayer = hud.querySelector('.story-fade');
   const chapter = hud.querySelector('.story-chapter');
   const toastElement = hud.querySelector('.story-toast');
@@ -297,6 +300,13 @@ export function createStoryHud(root) {
     [...interactCallbacks].forEach((callback) => callback());
   });
 
+  // スキップは受け付け中の層の上のボタン。押しても「次へ」にはしない
+  skipButton.addEventListener('pointerdown', (event) => event.stopPropagation());
+  skipButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+    skipCallbacks.slice().forEach((callback) => callback());
+  });
+
   advanceLayer.addEventListener('pointerdown', (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -338,6 +348,8 @@ export function createStoryHud(root) {
   });
 
   return {
+    setSkip: (on) => { skipButton.hidden = !on; },
+    onSkip: (callback) => { skipCallbacks.push(callback); },
     setVisible,
     setObjective,
     say,

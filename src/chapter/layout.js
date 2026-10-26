@@ -234,7 +234,14 @@ function chapelColliders() {
   for (const z of CHAPEL.columns) {
     list.push({ x: cx - 4.5, z, radius: 0.45 }, { x: cx + 4.5, z, radius: 0.45 });
   }
-  list.push({ x: CHAPEL.tower.x0 + 0.5, z: CHAPEL.tower.z0 + 0.5, radius: 0.6 }, { x: CHAPEL.tower.x1 - 0.5, z: CHAPEL.tower.z0 + 0.5, radius: 0.6 });
+  // 鐘塔：正面の壁の内側に、左右の壁と、身廊へ抜ける入口つきの奥の壁
+  const tw = CHAPEL.tower;
+  list.push(
+    box(tw.x0, tw.z0, tw.x0 + t, front),
+    box(tw.x1 - t, tw.z0, tw.x1, front),
+    box(tw.x0, tw.z0, cx - door, tw.z0 + t),
+    box(cx + door, tw.z0, tw.x1, tw.z0 + t),
+  );
   // 長椅子：中央の通路（幅 2.4m）の左右に 5 列
   for (let i = 0; i < 5; i++) {
     const z = -80 - i * 2;
@@ -268,3 +275,17 @@ export function nearestInteractable(x, z, available) {
 }
 
 export const inZone = (x, z, zone) => Math.hypot(x - zone.x, z - zone.z) <= zone.radius;
+
+// 歩ける範囲の縁までの距離（外側なら正、内側なら 0 以下）。木や草を置く場所を決めるのに使う
+export function distanceToWalkable(x, z) {
+  let best = distanceToPaths(x, z);
+  for (const c of CLEARINGS) best = Math.min(best, Math.hypot(x - c.x, z - c.z) - c.radius);
+  for (const a of AREAS) {
+    const dx = Math.max(a.x0 - x, 0, x - a.x1);
+    const dz = Math.max(a.z0 - z, 0, z - a.z1);
+    best = Math.min(best, dx === 0 && dz === 0 ? -Math.min(x - a.x0, a.x1 - x, z - a.z0, a.z1 - z) : Math.hypot(dx, dz));
+  }
+  return best;
+}
+
+export const inRavineBand = (x, z) => z > RAVINE.north - 1 && z < RAVINE.south + 1;

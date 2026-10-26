@@ -75,5 +75,124 @@
       "Spike_Shield",
       "2H_Sword"
     ]
+  },
+  {
+    "src": "assets-src/packs/kenney-nature/kit/Models/GLTF format/tree_oak_dark.glb",
+    "out": "public/models/forest/oak_dark.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1
+  },
+  {
+    "src": "assets-src/packs/kenney-nature/kit/Models/GLTF format/tree_detailed_dark.glb",
+    "out": "public/models/forest/detailed_dark.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1
+  },
+  {
+    "src": "assets-src/packs/kenney-nature/kit/Models/GLTF format/tree_default_dark.glb",
+    "out": "public/models/forest/default_dark.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1
+  },
+  {
+    "src": "assets-src/packs/kenney-nature/kit/Models/GLTF format/tree_fat_darkh.glb",
+    "out": "public/models/forest/fat_dark.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1
+  },
+  {
+    "src": "assets-src/packs/kenney-nature/kit/Models/GLTF format/plant_bushLarge.glb",
+    "out": "public/models/forest/bush_large.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1
+  },
+  {
+    "src": "assets-src/packs/kenney-nature/kit/Models/GLTF format/plant_bushDetailed.glb",
+    "out": "public/models/forest/bush_detailed.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1
+  },
+  {
+    "src": "assets-src/packs/kenney-nature/kit/Models/GLTF format/grass_large.glb",
+    "out": "public/models/forest/grass_large.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1
+  },
+  {
+    "src": "assets-src/packs/kenney-nature/kit/Models/GLTF format/hanging_moss.glb",
+    "out": "public/models/forest/hanging_moss.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1
+  },
+  {
+    "src": "assets-src/packs/kenney-nature/kit/Models/GLTF format/log_large.glb",
+    "out": "public/models/forest/log_large.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1
+  },
+  {
+    "src": "assets-src/packs/kenney-nature/kit/Models/GLTF format/stump_old.glb",
+    "out": "public/models/forest/stump_old.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1
+  },
+  {
+    "src": "assets-src/packs/kenney-nature/kit/Models/GLTF format/mushroom_tanGroup.glb",
+    "out": "public/models/forest/mushroom_group.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1
+  },
+  {
+    "src": "assets-src/packs/kenney-nature/kit/Models/GLTF format/rock_largeB.glb",
+    "out": "public/models/forest/rock_large_b.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1
+  },
+  {
+    "src": "assets-src/packs/kenney-nature/kit/Models/GLTF format/rock_tallA.glb",
+    "out": "public/models/forest/rock_tall_a.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1
+  },
+  {
+    "src": "assets-src/packs/kenney-nature/kit/Models/GLTF format/stone_tallB.glb",
+    "out": "public/models/forest/stone_tall_b.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1
+  },
+  {
+    "src": "assets-src/packs/kenney-nature/kit/Models/GLTF format/flower_yellowA.glb",
+    "out": "public/models/forest/flower_yellow.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1
+  },
+  {
+    "src": "assets-src/packs/kenney-nature/kit/Models/GLTF format/plant_flatTall.glb",
+    "out": "public/models/forest/fern.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1
+  },
+  {
+    "src": "assets-src/packs/kaykit-skeletons/Skeleton_Warrior.glb",
+    "out": "public/models/skeleton_warrior.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1,
+    "keepNodes": true,
+    "keepAnimations": [
+      "Idle",
+      "Walking_A",
+      "1H_Melee_Attack_Chop",
+      "Hit_A",
+      "Death_A",
+      "Idle_Combat",
+      "Skeleton_Inactive_Standing_Pose",
+      "Skeletons_Awaken_Standing"
+    ]
+  },
+  {
+    "src": "assets-src/packs/kaykit-skeletons/Skeleton_Blade.glb",
+    "out": "public/models/skeleton_blade.glb",
+    "textureSize": 512,
+    "simplifyRatio": 1
   }
 ]

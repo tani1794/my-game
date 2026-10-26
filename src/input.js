@@ -18,6 +18,7 @@ const tapKeyMap = {
   KeyK: 'dodge',
   Space: 'dodge',
   KeyL: 'lock',
+  KeyE: 'interact',
 };
 
 // キーボードとスティックの入力を足し、斜めでも速くならないよう長さを1で頭打ちにする

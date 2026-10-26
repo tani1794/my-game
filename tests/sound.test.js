@@ -319,3 +319,20 @@ test('負けた音（lose）は、ほかの画面の音より小さく鳴らす'
   sound.play({ name: 'lose', group: 'ui' });
   expect(voiceGain(gains)).toBeCloseTo(click * 0.45);
 });
+
+test('鐘：素材なしで合成して鳴らす（音が動いているときだけ）', async () => {
+  const { ctx, sound } = await ready(['hit']);
+  const oscillators = [];
+  ctx.createOscillator = () => {
+    const osc = { type: 'sine', frequency: { value: 0 }, connect: vi.fn(() => osc), start: vi.fn(), stop: vi.fn(), disconnect: vi.fn(), onended: null };
+    oscillators.push(osc);
+    return osc;
+  };
+  ctx.state = 'suspended';
+  sound.bell();
+  expect(oscillators).toHaveLength(0);
+  ctx.state = 'running';
+  sound.bell();
+  expect(oscillators.length).toBeGreaterThanOrEqual(3);
+  expect(oscillators.every((o) => o.start.mock.calls.length === 1 && o.stop.mock.calls.length === 1)).toBe(true);
+});

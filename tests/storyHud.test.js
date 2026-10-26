@@ -90,3 +90,21 @@ test('fade は時間がたつと resolve する（transitionend が来なくて�
   expect(done).toHaveBeenCalledTimes(1);
   vi.useRealTimers();
 });
+
+test('スキップ：受け付け中の層の左上に「スキップ」。押すと onSkip だけ（onAdvance は呼ばない）', () => {
+  const { root, hud } = make();
+  const skip = vi.fn();
+  const advance = vi.fn();
+  hud.onSkip(skip);
+  hud.onAdvance(advance);
+  hud.setAdvance(true);
+  const button = root.querySelector('.story-skip');
+  expect(button.hidden).toBe(true);
+  hud.setSkip(true);
+  expect(button.hidden).toBe(false);
+  button.click();
+  expect(skip).toHaveBeenCalledTimes(1);
+  expect(advance).not.toHaveBeenCalled();
+  hud.setSkip(false);
+  expect(button.hidden).toBe(true);
+});

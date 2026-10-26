@@ -29,6 +29,10 @@ const LOOK_RETURN_SPEED = LOOK_AROUND / 0.5; // 指を離すと0.5秒で戻る
 const LAG_TIME = 0.07; // 回避中の遅れ（約0.2秒で追いつく）
 const SHAKE_TIME = 0.2;
 const SHAKE_AMOUNT = 0.15;
+// 壁で寄ったあと、元の距離へ戻る速さ（1秒に何 m）
+const ZOOM_RETURN_SPEED = 3;
+const GROUND_CLEARANCE = 0.4;
+const MIN_DISTANCE = 0.8;
 
 // 主人公の後ろから結晶獣を見る yaw（カメラは主人公から見て結晶獣の反対側）
 export function lockYaw(player, beast) {
@@ -50,6 +54,7 @@ export function createCameraRig() {
   let shakeTime = 0;
   const follow = new THREE.Vector3();
   let hasFollow = false;
+  let distance = DISTANCE;
 
   function drag(dx, dy) {
     dragging = true;
@@ -76,7 +81,9 @@ export function createCameraRig() {
     shakeStrength = strength;
   }
 
-  function update(target, dt) {
+  // options.limit(lookAt, position) → 注視点からカメラまでで、遮る物の手前までの距離（なければ Infinity）
+  // options.ground(x, z) → その場所の地面の高さ。カメラは地面より上に置く
+  function update(target, dt, options = {}) {
     // 回避中は、少し遅れて主人公を追う
     if (!hasFollow || !lag) follow.copy(target);
     else follow.lerp(target, 1 - Math.exp(-dt / LAG_TIME));
@@ -93,7 +100,15 @@ export function createCameraRig() {
     }
 
     const viewYaw = wrap(yaw + lookOffset);
-    const pose = cameraPose(follow, viewYaw, pitch, DISTANCE, SHOULDER);
+    let pose = cameraPose(follow, viewYaw, pitch, DISTANCE, SHOULDER);
+    // 壁や幹があれば、すぐにその手前まで寄る。なくなったら、ゆっくり戻る
+    const allowed = options.limit ? Math.max(MIN_DISTANCE, Math.min(DISTANCE, options.limit(pose.lookAt, pose.position))) : DISTANCE;
+    distance = allowed < distance ? allowed : Math.min(allowed, distance + ZOOM_RETURN_SPEED * dt);
+    if (distance < DISTANCE) pose = cameraPose(follow, viewYaw, pitch, distance, SHOULDER * (distance / DISTANCE));
+    if (options.ground) {
+      const floor = options.ground(pose.position.x, pose.position.z) + GROUND_CLEARANCE;
+      if (pose.position.y < floor) pose.position.y = floor;
+    }
 
     // 揺れ：0.2 秒で弱まって消える
     if (shakeLeft > 0) {
@@ -116,6 +131,7 @@ export function createCameraRig() {
     setLag: (value) => { lag = value; },
     update,
     yaw: () => wrap(yaw + lookOffset),
+    setYaw: (value) => { yaw = wrap(value); lookOffset = 0; },
     locked: () => lock !== null,
   };
 }
@@ -161,8 +177,8 @@ export function createFollowCamera(canvas) {
   canvas.addEventListener('pointercancel', release);
   canvas.addEventListener('lostpointercapture', release);
 
-  function update(target, dt = 0) {
-    const pose = rig.update(target, dt);
+  function update(target, dt = 0, options = {}) {
+    const pose = rig.update(target, dt, options);
     camera.position.copy(pose.position);
     camera.lookAt(pose.lookAt);
   }
@@ -180,6 +196,7 @@ export function createFollowCamera(canvas) {
   return {
     camera,
     yaw: rig.yaw,
+    setYaw: rig.setYaw,
     update,
     resize,
     clear,

@@ -96,3 +96,34 @@ test('回避中の遅れ：主人公が急に動くと、カメラは約0.2秒�
   const later = run(rig, moved, 0.3);
   expect(later.lookAt.x).toBeCloseTo(2 + 1.1, 1);
 });
+
+// ── 第一章：壁に埋まらない・地面の下へ行かない・向きを合わせる ──
+import * as THREE_CAM from 'three';
+
+test('注視点とカメラの間に壁があれば、その手前まで寄る（すぐに）。壁がなくなると、ゆっくり戻る', () => {
+  const rig = createCameraRig();
+  const target = new THREE_CAM.Vector3(0, 0, 0);
+  const far = rig.update(target, 1 / 60);
+  const full = far.position.distanceTo(far.lookAt);
+  const near = rig.update(target, 1 / 60, { limit: () => 2 });
+  expect(near.position.distanceTo(near.lookAt)).toBeCloseTo(2, 3);
+  const back = rig.update(target, 0.1, {});
+  const d = back.position.distanceTo(back.lookAt);
+  expect(d).toBeGreaterThan(2);
+  expect(d).toBeLessThan(full);
+  let pose;
+  for (let i = 0; i < 120; i++) pose = rig.update(target, 1 / 30, {});
+  expect(pose.position.distanceTo(pose.lookAt)).toBeCloseTo(full, 3);
+});
+
+test('カメラは地面より下へ行かない', () => {
+  const rig = createCameraRig();
+  const pose = rig.update(new THREE_CAM.Vector3(0, 0, 0), 1 / 60, { ground: () => 5 });
+  expect(pose.position.y).toBeGreaterThanOrEqual(5.4 - 1e-6);
+});
+
+test('setYaw で向きを合わせる（主人公の後ろから）', () => {
+  const rig = createCameraRig();
+  rig.setYaw(Math.PI / 2);
+  expect(rig.yaw()).toBeCloseTo(Math.PI / 2);
+});

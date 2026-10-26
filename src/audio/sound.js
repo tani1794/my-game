@@ -203,6 +203,27 @@ export function createSound({
     fadeOutMusic(fade);
   }
 
+  // 遠くで鳴る鐘（記憶の場面）。素材がないので、倍音の違う正弦波を重ね、ゆっくり消えるように合成する
+  function bell() {
+    if (!unlocked || suspended || isMuted || ctx.state !== 'running' || !ctx.createOscillator) return;
+    const now = ctx.currentTime;
+    const base = 196;
+    for (const [ratio, level, decay] of [[1, 0.5, 4.5], [2.01, 0.25, 3], [2.76, 0.18, 2.2], [5.4, 0.08, 1.2]]) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = base * ratio;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(level * 0.35, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime?.(0.0001, now + decay);
+      osc.connect(gain);
+      gain.connect(master);
+      osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+      osc.start(now);
+      osc.stop(now + decay + 0.1);
+    }
+  }
+
   function setMuted(value) {
     isMuted = value;
     if (master) master.gain.value = isMuted ? 0 : MASTER;
@@ -224,5 +245,5 @@ export function createSound({
     if (unlocked) ctx?.resume();
   }
 
-  return { unlock, load, play, stopAll, startAmbient, playMusic, stopMusic, setMuted, muted: () => isMuted, suspend, resume, loaded: () => buffers.size };
+  return { unlock, load, play, bell, stopAll, startAmbient, playMusic, stopMusic, setMuted, muted: () => isMuted, suspend, resume, loaded: () => buffers.size };
 }
