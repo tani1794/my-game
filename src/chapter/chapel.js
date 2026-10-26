@@ -360,7 +360,10 @@ export function createChapel(scene, materials) {
     interiorLight.intensity = 18 + 30 * amount;
   }
 
-  function update(time) {
+  // 埃は礼拝堂の近くにいるときだけ動かす（森にいる間は、毎コマの書き換えをしない）
+  function update(time, near = true) {
+    dust.visible = near;
+    if (!near) return;
     const position = dustGeometry.getAttribute('position');
     for (let i = 0; i < dustCount; i++) {
       position.setXYZ(

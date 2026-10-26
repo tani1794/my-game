@@ -50,6 +50,8 @@ function recolor(model) {
 
 // 葉と草だけ、高さに比例して風で小さく揺らす（幹の根元は動かない）
 function addWind(material, timeUniform, amount) {
+  // three.js は onBeforeCompile の文面が同じ材質を同じものとみなすので、揺れ方と法線の扱いごとに名前を分ける
+  material.customProgramCacheKey = () => `forest-wind-${amount}-${Boolean(material.userData.upNormal)}`;
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uWindTime = timeUniform;
     shader.vertexShader = shader.vertexShader
@@ -66,6 +68,13 @@ function addWind(material, timeUniform, amount) {
         transformed.x += windSway;
         transformed.z += windSway * 0.6;`,
       );
+    // 小さな草花：裏から見ても法線を反転させない（上向きの法線のまま、黒くならない）
+    if (material.userData.upNormal) {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <normal_fragment_begin>',
+        THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''),
+      );
+    }
   };
 }
 
@@ -79,7 +88,7 @@ function matrixFor(spot, scale) {
 }
 
 // 1つのモデルを、たくさんの場所に置く（部品ごとに InstancedMesh）
-function instance(model, spots, sizeOf, { shadow = true, wind = null } = {}) {
+function instance(model, spots, sizeOf, { shadow = true, wind = null, receive = true } = {}) {
   const group = new THREE.Group();
   if (!model || spots.length === 0) return group;
   model.updateMatrixWorld(true);
@@ -90,13 +99,14 @@ function instance(model, spots, sizeOf, { shadow = true, wind = null } = {}) {
     const material = part.material;
     const name = material.name.toLowerCase();
     if (wind && (name.includes('leaf') || name.includes('grass'))) addWind(material, wind.time, wind.amount);
+    else if (material.userData.upNormal) addWind(material, { value: 0 }, 0); // 揺らさず、法線の向きだけ直す
     const mesh = new THREE.InstancedMesh(part.geometry, material, spots.length);
     spots.forEach((spot, i) => {
       matrix.copy(matrixFor(spot, sizeOf(spot, size)));
       mesh.setMatrixAt(i, matrix.multiply(part.matrixWorld));
     });
     mesh.castShadow = shadow;
-    mesh.receiveShadow = true;
+    mesh.receiveShadow = receive;
     mesh.computeBoundingSphere();
     group.add(mesh);
   });
@@ -282,6 +292,7 @@ function createWinch(materials) {
     rubble.add(rock);
   }
   group.add(rubble);
+  const rockHome = rubble.children.map((rock) => rock.position.clone());
 
   const lever = new THREE.Group();
   const lx = INTERACTABLES.lever.x; const lz = -27.1;
@@ -305,6 +316,14 @@ function createWinch(materials) {
     pullLever(animate = true) {
       leverT = animate ? 0 : 1;
       if (!animate) lever.rotation.x = 0.6;
+    },
+    // 保存の状態どおりに戻す（はじめから、のときは瓦礫もレバーも元どおり）
+    setState({ freed, pulled }) {
+      rubbleT = -1;
+      leverT = -1;
+      rubble.visible = !freed;
+      rubble.children.forEach((rock, i) => { rock.position.copy(rockHome[i]); });
+      lever.rotation.x = pulled ? 0.6 : -0.6;
     },
     update(dt) {
       if (rubbleT >= 0 && rubbleT < 1) {
@@ -552,6 +571,7 @@ export async function createForest(scene, materials, { lite = false, load = load
       const normal = part.geometry.getAttribute('normal');
       for (let i = 0; i < normal.count; i++) normal.setXYZ(i, 0, 1, 0);
       part.material.side = THREE.DoubleSide;
+      part.material.userData.upNormal = true;
     });
   }
 
@@ -559,7 +579,10 @@ export async function createForest(scene, materials, { lite = false, load = load
   const byKind = (list, kind) => list.filter((spot) => spot.kind === kind);
   const treeWind = { time: windTime, amount: 0.035 };
   for (const kind of ['oak', 'detailed', 'plain', 'fat', 'pineTall', 'pine']) {
-    root.add(instance(models[kind], byKind(layout.trees, kind), (t, size) => t.height / size.y, { wind: treeWind }));
+    // 影を落とすのは道の近くの木だけ（影の計算で森全体を描かないように）
+    const trees = byKind(layout.trees, kind);
+    root.add(instance(models[kind], trees.filter((t) => t.edge < 6), (t, size) => t.height / size.y, { wind: treeWind }));
+    root.add(instance(models[kind], trees.filter((t) => t.edge >= 6), (t, size) => t.height / size.y, { wind: treeWind, shadow: false }));
     root.add(instance(models[kind], byKind(layout.skyline, kind), (t, size) => t.height / size.y, { shadow: false }));
   }
   for (const tree of layout.trees) if (tree.edge < 5) addTrunk(tree.x, tree.z, 0.45, 5);
@@ -567,7 +590,8 @@ export async function createForest(scene, materials, { lite = false, load = load
   const propWind = { time: windTime, amount: 0.12 };
   const sizes = { fern: 1.4, bush: 1.6, bushDetailed: 1.2, grass: 0.9, rock: 1.4, rockTall: 2.4, mushrooms: 0.5, stump: 0.9, log: 2.6 };
   for (const kind of Object.keys(sizes)) {
-    root.add(instance(models[kind], byKind(layout.props, kind), (p, size) => (sizes[kind] * p.size) / Math.max(size.x, size.y, size.z), { shadow: kind !== 'grass' && kind !== 'fern', wind: propWind }));
+    const small = kind === 'grass' || kind === 'fern';
+    root.add(instance(models[kind], byKind(layout.props, kind), (p, size) => (sizes[kind] * p.size) / Math.max(size.x, size.y, size.z), { shadow: !small, receive: !small, wind: propWind }));
   }
 
   // 広場の大木
@@ -581,7 +605,8 @@ export async function createForest(scene, materials, { lite = false, load = load
     const r = Math.sqrt(random()) * 1.4;
     flowers.push({ x: fx + Math.cos(a) * r, z: fz + Math.sin(a) * r, turn: random() * 6.28, size: 0.8 + random() * 0.5 });
   }
-  root.add(instance(models.flower, flowers, (p, size) => (0.45 * p.size) / size.y, { shadow: false, wind: propWind }));
+  // 小さな草花は自分の影で真っ黒にならないよう、影を受けない
+  root.add(instance(models.flower, flowers, (p, size) => (0.45 * p.size) / size.y, { shadow: false, receive: false, wind: propWind }));
   // 門衛所と石垣の蔦
   const ivy = [];
   for (let x = GATEHOUSE.x0 + 0.6; x < GATEHOUSE.x1; x += 1.1) {

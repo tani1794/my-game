@@ -87,3 +87,19 @@ test('はじめから（newGame）で全部消える', () => {
   expect(progress.phase()).toBe('PROLOGUE');
   expect(createProgress(storage).hasSave()).toBe(false);
 });
+
+test('矛盾した保存（門が閉じたまま門の先や礼拝堂から再開、礼拝堂の段階なのに門の手前）は、はじめからにする', () => {
+  const bad = [
+    { version: 1, phase: 'FOREST', checkpoint: 'chapel', flags: {}, seen: [], defeated: [] },
+    { version: 1, phase: 'FOREST', checkpoint: 'gate', flags: {}, seen: [], defeated: [] },
+    { version: 1, phase: 'CHAPEL_INTERIOR', checkpoint: 'chapel', flags: {}, seen: [], defeated: [] },
+    { version: 1, phase: 'CHAPEL_APPROACH', checkpoint: 'start', flags: { gateOpen: true }, seen: [], defeated: [] },
+  ];
+  for (const data of bad) {
+    const progress = createProgress(memoryStorage({ [SAVE_KEY]: JSON.stringify(data) }));
+    expect(progress.hasSave()).toBe(false);
+    expect(progress.checkpoint()).toBe('start');
+  }
+  const good = createProgress(memoryStorage({ [SAVE_KEY]: JSON.stringify({ version: 1, phase: 'CHAPEL_INTERIOR', checkpoint: 'chapel', flags: { gateOpen: true }, seen: [], defeated: [] }) }));
+  expect(good.hasSave()).toBe(true);
+});

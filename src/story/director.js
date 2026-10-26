@@ -17,7 +17,7 @@ const atLeast = (progress, phase) => PHASE_ORDER.indexOf(progress.phase()) >= PH
 export function objectiveFor(progress) {
   const phase = progress.phase();
   if (phase === 'PROLOGUE') return null;
-  if (phase === 'CHAPTER_COMPLETE') return OBJECTIVES.next;
+  if (phase === 'CHAPTER_COMPLETE' || phase === 'CRYSTAL_BATTLE') return OBJECTIVES.next;
   if (phase === 'CHAPEL_INTERIOR') return progress.flag('memorySeen') ? OBJECTIVES.altar : OBJECTIVES.mural;
   if (phase === 'CHAPEL_APPROACH') return OBJECTIVES.enterChapel;
   if (progress.flag('gateOpen')) return OBJECTIVES.toChapel;
@@ -50,12 +50,14 @@ export function createDirector(progress, { scenes = SCENES } = {}) {
   let control = true;
   let actions = [];
 
-  function play(id, { once = true, urgent = false } = {}) {
-    if (once) {
-      if (progress.seen(id)) return;
-      progress.markSeen(id);
-    }
-    const scene = { id, steps: scenes[id], index: 0, timer: 0 };
+  const active = (id) => current?.id === id || queue.some((scene) => scene.id === id);
+
+  // once の場面は、最後まで流れたときに「見た」と記録する（途中で物語を離れても、もう一度起こせる）
+  // urgent：今の会話より先に流す。resume が false なら、割り込まれた会話は結果だけ確定して終える
+  function play(id, { once = true, urgent = false, resume = true } = {}) {
+    if (active(id)) return;
+    if (once && progress.seen(id)) return;
+    const scene = { id, steps: scenes[id], index: 0, timer: 0, once };
     if (urgent) {
       // タップ待ちの場面（目覚め・記憶）は止めず、その直後に流す
       if (current && BLOCKING_SCENES.has(current.id)) {
@@ -63,9 +65,11 @@ export function createDirector(progress, { scenes = SCENES } = {}) {
         return;
       }
       // 危険の知らせ：今の場面を一旦止めて、先に流す。止めた場面は、その行の頭から出し直す
-      if (current) {
+      if (current && resume) {
         current.timer = 0;
         queue.unshift(current);
+      } else if (current) {
+        flush(current);
       }
       current = scene;
       subtitle = null;
@@ -79,7 +83,11 @@ export function createDirector(progress, { scenes = SCENES } = {}) {
   // 字幕以外の手順を、すぐに実行する
   function apply(step) {
     // 目的は、いつも今の進み具合から決める（後から流れた古い場面に上書きされないように）
-    if (step.objective !== undefined) objective = objectiveFor(progress);
+    // 目的の手順は場面の「結果」：ここで場面を見たことにして、目的を決め直す
+    if (step.objective !== undefined) {
+      if (current?.once) progress.markSeen(current.id);
+      objective = objectiveFor(progress);
+    }
     if (step.set) progress.set(step.set);
     if (step.phase) progress.advance(step.phase);
     if (step.checkpoint) progress.reach(step.checkpoint);
@@ -101,6 +109,7 @@ export function createDirector(progress, { scenes = SCENES } = {}) {
     while (current) {
       const step = current.steps[current.index];
       if (!step) {
+        if (current.once) progress.markSeen(current.id);
         current = queue.shift() ?? null;
         continue;
       }
@@ -157,6 +166,7 @@ export function createDirector(progress, { scenes = SCENES } = {}) {
       const step = scene.steps[i];
       if (!lineOf(step) && step.wait === undefined && step.action !== 'wakeIntro' && step.action !== 'lookAround') apply(step);
     }
+    if (scene.once) progress.markSeen(scene.id);
   }
 
   function react(signals) {
@@ -177,7 +187,7 @@ export function createDirector(progress, { scenes = SCENES } = {}) {
     const id = signals.interact;
     if (!id || !interactablesFor(progress).includes(id)) return;
     // 調べたときの反応は、エリアの話より先に出す（タップ待ちの場面には割り込まない）
-    const now = { urgent: true };
+    const now = { urgent: true, resume: false };
     if (id === 'flowers') play('flowers', now);
     if (id === 'memorial') play('memorial', now);
     if (id === 'gate') play('gateLocked', { ...now, once: false });

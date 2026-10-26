@@ -100,8 +100,8 @@ export const SCENES = {
     { say: [ELIA, '……守り手。この森にも、いたんですね。'] },
   ],
   chapelArrive: [
-    { phase: 'CHAPEL_APPROACH' },
     { checkpoint: 'chapel' },
+    { phase: 'CHAPEL_APPROACH' },
     { toast: 'チェックポイント' },
     { say: [ELIA, 'ここは……覚えています。'] },
     { say: [ELIA, '雨の日は、あの軒下で待っていました。'] },

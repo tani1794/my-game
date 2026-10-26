@@ -77,7 +77,7 @@ export const INTERACTABLES = {
   winch: { x: -2.6, z: -25.2, radius: 2.2, label: '巻き上げ機を調べる' },
   lever: { x: 3.2, z: -26.4, radius: 2, label: 'レバーを引く' },
   memorial: { x: -41, z: 6.5, radius: 2.4, label: '記念碑を調べる' },
-  mural: { x: 29.9, z: -91.5, radius: 2.4, label: '壁画を調べる' },
+  mural: { x: 29.9, z: -89, radius: 2.4, label: '壁画を調べる' },
   altar: { x: 36, z: -92.2, radius: 2.4, label: '祭壇を調べる' },
   pilgrimPath: { x: 36, z: -105, radius: 3, label: '巡礼路を進む' },
 };

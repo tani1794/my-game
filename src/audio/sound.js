@@ -218,9 +218,16 @@ export function createSound({
       gain.gain.exponentialRampToValueAtTime?.(0.0001, now + decay);
       osc.connect(gain);
       gain.connect(master);
-      osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+      osc.onended = () => {
+        const index = voices.indexOf(osc);
+        if (index >= 0) voices.splice(index, 1);
+        osc.disconnect();
+        gain.disconnect();
+      };
       osc.start(now);
       osc.stop(now + decay + 0.1);
+      // stopAll で止められるよう、鳴っている音の一覧に入れる
+      voices.push(osc);
     }
   }
 

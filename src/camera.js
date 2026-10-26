@@ -32,7 +32,8 @@ const SHAKE_AMOUNT = 0.15;
 // 壁で寄ったあと、元の距離へ戻る速さ（1秒に何 m）
 const ZOOM_RETURN_SPEED = 3;
 const GROUND_CLEARANCE = 0.4;
-const MIN_DISTANCE = 1.3;
+// 壁際では、壁の手前まで寄れるように小さく（近すぎるときは、物語側で主人公を隠す）
+const MIN_DISTANCE = 0.35;
 
 // 主人公の後ろから結晶獣を見る yaw（カメラは主人公から見て結晶獣の反対側）
 export function lockYaw(player, beast) {

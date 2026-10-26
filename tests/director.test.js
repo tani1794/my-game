@@ -260,3 +260,54 @@ test('記憶が終われば、エリアが話している間も動ける', () =>
   expect(out.blocking).toBe(false);
   expect(out.inMemory).toBe(false);
 });
+
+test('場面の途中で物語を離れても、その場面は「見た」にならず、もう一度起こせる（詰まない）', () => {
+  const storage = memoryStorage();
+  const progress = createProgress(storage);
+  progress.set('gateOpen');
+  progress.reach('chapel');
+  progress.advance('CHAPEL_INTERIOR');
+  progress.markSeen('wake');
+  const director = createDirector(progress);
+  director.begin();
+  director.update(0.1, { ...quiet, interact: 'mural' });
+  run(director, 2);
+  // ここでタイトルへ戻って、もう一度始める
+  const again = createDirector(createProgress(storage));
+  again.begin();
+  expect(again.update(0.1, quiet).interactables).toContain('mural');
+  again.update(0.1, { ...quiet, interact: 'mural' });
+  expect(run(again, 1, { skip: true }).actions).toContain('memoryEnd');
+});
+
+test('同じ場面は、流れている間にもう一度起こしても重ならない', () => {
+  const { director } = afterWake();
+  director.update(0.1, { ...quiet, interact: 'flowers' });
+  director.update(0.1, { ...quiet, interact: 'flowers' });
+  const { said } = run(director, 20);
+  expect(said.filter((text) => text === '……誰と一緒だったのかは、思い出せません。')).toHaveLength(1);
+});
+
+test('結晶獣戦のあとに物語へ戻っても、目的は次の目的のまま', () => {
+  const storage = memoryStorage();
+  const progress = createProgress(storage);
+  progress.set('gateOpen');
+  progress.advance('CRYSTAL_BATTLE');
+  progress.reach('chapel');
+  const director = createDirector(createProgress(storage));
+  expect(director.begin().objective).toBe(OBJECTIVES.next);
+  expect(director.update(0.1, quiet).interactables).toContain('pilgrimPath');
+});
+
+test('調べたことで割り込まれた会話は、あとから流し直さない（結果だけ確定する）', () => {
+  const { director, progress } = afterWake();
+  progress.set('gateOpen');
+  run(director, 12, { zones: ['chapelFront'] });
+  director.update(0.1, { ...quiet, zones: ['nave'] });
+  run(director, 0.5);
+  director.update(0.1, { ...quiet, interact: 'mural' });
+  run(director, 1, { skip: true });
+  const { said } = run(director, 30);
+  expect(said).not.toContain('奥へ。左の壁に、絵があったはずです。');
+  expect(progress.seen('nave')).toBe(true);
+});

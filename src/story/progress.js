@@ -27,6 +27,11 @@ function read(storage) {
     if (!PHASES.includes(data.phase) || data.phase === 'TITLE') return null;
     if (!CHECKPOINT_NAMES.includes(data.checkpoint)) return null;
     if (!data.flags || typeof data.flags !== 'object' || !isStringList(data.seen) || !isStringList(data.defeated)) return null;
+    // 矛盾した組み合わせ（閉じた門の先から再開する、など）は詰むので、はじめからにする
+    const gateOpen = data.flags.gateOpen === true;
+    const atChapel = PHASES.indexOf(data.phase) >= PHASES.indexOf('CHAPEL_APPROACH');
+    if (data.checkpoint !== 'start' && !gateOpen) return null;
+    if (atChapel && (!gateOpen || data.checkpoint !== 'chapel')) return null;
     return { phase: data.phase, checkpoint: data.checkpoint, flags: { ...data.flags }, seen: data.seen, defeated: data.defeated };
   } catch {
     return null;

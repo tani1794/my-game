@@ -336,3 +336,17 @@ test('鐘：素材なしで合成して鳴らす（音が動いているとき�
   expect(oscillators.length).toBeGreaterThanOrEqual(3);
   expect(oscillators.every((o) => o.start.mock.calls.length === 1 && o.stop.mock.calls.length === 1)).toBe(true);
 });
+
+test('鐘も stopAll で止まる（タイトルへ戻ったら鳴り続けない）', async () => {
+  const { ctx, sound } = await ready(['hit']);
+  const oscillators = [];
+  ctx.createOscillator = () => {
+    const osc = { type: 'sine', frequency: { value: 0 }, connect: vi.fn(() => osc), start: vi.fn(), stop: vi.fn(), disconnect: vi.fn(), onended: null };
+    oscillators.push(osc);
+    return osc;
+  };
+  ctx.state = 'running';
+  sound.bell();
+  sound.stopAll();
+  expect(oscillators.every((o) => o.stop.mock.calls.length === 2)).toBe(true);
+});

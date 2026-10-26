@@ -124,8 +124,7 @@ export function createChapterRunner({ renderer, followCamera, input, stick, hud,
   // 保存から、門・巻き上げ機・倒した衛兵の状態を作り直す
   function applyWorld() {
     forest.gate.setOpen(progress.flag('gateOpen'), false);
-    if (progress.flag('winchFreed')) forest.winch.clearRubble(false);
-    if (progress.flag('gateOpen')) forest.winch.pullLever(false);
+    forest.winch.setState({ freed: progress.flag('winchFreed'), pulled: progress.flag('gateOpen') });
     for (const guard of guards) {
       guard.reset();
       if (progress.defeated(guard.id)) {
@@ -258,6 +257,11 @@ export function createChapterRunner({ renderer, followCamera, input, stick, hud,
     storyHud.setSkip(next.inMemory);
   }
 
+  // 当たり判定と見通しは、門の開閉の2通りだけなので、前もって作っておく
+  const WORLD_OPEN = collidersFor({ gateOpen: true });
+  const WORLD_CLOSED = collidersFor({ gateOpen: false });
+  const headPoint = new THREE.Vector3();
+
   // 見通し：途中に壁（箱の当たり判定）があれば見えない
   function canSee(colliders) {
     const boxes = colliders.filter((c) => c.type === 'box');
@@ -277,6 +281,9 @@ export function createChapterRunner({ renderer, followCamera, input, stick, hud,
       return true;
     };
   }
+
+  const SIGHT_OPEN = canSee(WORLD_OPEN);
+  const SIGHT_CLOSED = canSee(WORLD_CLOSED);
 
   // 注視点からカメラまでで、壁・幹・屋根に当たる手前の距離
   const toCamera = new THREE.Vector3();
@@ -324,12 +331,14 @@ export function createChapterRunner({ renderer, followCamera, input, stick, hud,
       camera.lookAt(...debugView.look);
       return;
     }
-    // 記憶の場面：身廊の中から、祭壇脇の壁画を映す
+    // 記憶の場面：身廊の中から、祭壇脇の壁画を映す（主人公は記憶の中にいないので隠す）
+    player.object.visible = !out.inMemory;
     if (out.inMemory) {
       const floorY = heightAt(CHAPEL.x, -88);
       followCamera.update(player.object.position, dt, options);
-      camera.position.set(CHAPEL.x - 1.6, floorY + 2.1, INTERACTABLES.mural.z + 3.6);
-      camera.lookAt(CHAPEL.x - CHAPEL.halfWidth + 0.8, floorY + 2.4, INTERACTABLES.mural.z);
+      // 柱と柱の間から、壁画を正面に近い向きで見る
+      camera.position.set(CHAPEL.x - 2.4, floorY + 2.4, INTERACTABLES.mural.z - 0.3);
+      camera.lookAt(CHAPEL.x - CHAPEL.halfWidth + 0.8, floorY + 2.5, INTERACTABLES.mural.z);
       return;
     }
     if (cinematic?.kind === 'wake') {
@@ -441,13 +450,16 @@ export function createChapterRunner({ renderer, followCamera, input, stick, hud,
     if (frame.face !== null) facing = frame.face;
     else if (frame.move.speed > 0) facing = Math.atan2(frame.move.x, frame.move.z);
 
-    const world = collidersFor({ gateOpen: progress.flag('gateOpen') });
+    const world = progress.flag('gateOpen') ? WORLD_OPEN : WORLD_CLOSED;
     const guardCircles = guards.filter((g) => g.alive()).map((g) => ({ ...g.position(), radius: GUARD_RADIUS, id: g.id }));
     if (cinematic?.kind !== 'wake') player.drive(dt, frame, [...world, ...guardCircles], heightAt, walkable);
     else player.drive(dt, { ...frame, move: { x: 0, z: 0, speed: 0 }, face: null }, world, heightAt, walkable);
+    // 衛兵に押し出されても、歩ける範囲の外（谷や道の外）へは出さない
     const freed = pushOut(p, guardCircles);
-    p.x = freed.x;
-    p.z = freed.z;
+    if (walkable(freed.x, freed.z)) {
+      p.x = freed.x;
+      p.z = freed.z;
+    }
 
     // 音：振り始め・回避・足音
     const animation = player.currentAnimation();
@@ -484,7 +496,7 @@ export function createChapterRunner({ renderer, followCamera, input, stick, hud,
     }
 
     // ── 衛兵 ──
-    const sight = canSee(world);
+    const sight = progress.flag('gateOpen') ? SIGHT_OPEN : SIGHT_CLOSED;
     const playerPos = frame.mode === 'dead' ? { x: 1e4, z: 1e4 } : { x: p.x, z: p.z };
     const frames = guards.map((guard) => {
       const others = guards.filter((o) => o !== guard && o.alive()).map((o) => o.position());
@@ -528,7 +540,9 @@ export function createChapterRunner({ renderer, followCamera, input, stick, hud,
     }
     updateMood();
     forest.update(time, dt);
-    chapel.update(time);
+    chapel.update(time, p.z < -60);
+    // カメラが主人公に近すぎる（壁際）ときは、主人公を隠して画面がふさがらないようにする
+    if (!out.inMemory) player.object.visible = camera.position.distanceTo(headPoint.set(p.x, p.y + 1.3, p.z)) > 0.9;
     hud.setVitals(frame.hp, frame.stamina);
     combatHud.update(dt);
     post.render();
@@ -571,7 +585,7 @@ export function createChapterRunner({ renderer, followCamera, input, stick, hud,
     preload: build,
     teleport,
     view,
-    debug: () => ({ player: player.object.position, out, progress, guards: guards.map((g) => ({ id: g.id, ...g.position(), alive: g.alive() })) }),
+    debug: () => ({ scene, player: player.object.position, out, progress, guards: guards.map((g) => ({ id: g.id, ...g.position(), alive: g.alive() })) }),
     clearInput: () => { stick.reset(); },
   };
 }
