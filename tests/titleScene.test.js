@@ -109,3 +109,10 @@ test('場面の中の動きは、両端がなめらか（easeInOut）', () => {
   const { from, to } = TITLE_SHOTS[1];
   expect(a.zoom).toBeCloseTo(from.zoom + (to.zoom - from.zoom) * 0.15625, 4);
 });
+
+test('どの場面も少し寄っておき、立体のずれで絵の端がはみ出さない', () => {
+  for (const shot of TITLE_SHOTS) {
+    expect(shot.from.zoom).toBeGreaterThanOrEqual(1.04);
+    expect(shot.to.zoom).toBeGreaterThanOrEqual(1.04);
+  }
+});

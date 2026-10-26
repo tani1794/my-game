@@ -458,11 +458,12 @@ function renderTitle() {
   renderer.render(titleScene.scene, titleScene.camera);
 }
 
-// 結晶獣と木々が読めたら、戦いの絵の準備（シェーダーの用意）を描かずに済ませる。始めた瞬間に引っかからないように
+// 結晶獣と木々が読めたら、戦いの絵を1回だけ実際に描いて準備を済ませる（始めた瞬間に引っかからないように）。
+// 同じ frame のうちにタイトルを上から描くので、画面には出ない
 function warmUp() {
   if (warmedUp || !beast || !vegetation) return;
   warmedUp = true;
-  renderer.compile(scene, followCamera.camera);
+  post.render();
 }
 
 function animate(now) {

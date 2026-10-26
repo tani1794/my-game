@@ -7,8 +7,8 @@ export const FADE_SECONDS = 0.8;
 export const TITLE_SHOTS = [
   {
     name: 'wide',
-    from: { x: 0.50, y: 0.45, zoom: 1.00, lookX: -1.0, lookY: 0.0 },
-    to: { x: 0.52, y: 0.45, zoom: 1.06, lookX: 1.0, lookY: 0.2 },
+    from: { x: 0.50, y: 0.45, zoom: 1.04, lookX: -1.0, lookY: 0.0 },
+    to: { x: 0.52, y: 0.45, zoom: 1.10, lookX: 1.0, lookY: 0.2 },
   },
   {
     name: 'beast',
@@ -23,7 +23,7 @@ export const TITLE_SHOTS = [
   {
     name: 'final',
     from: { x: 0.50, y: 0.42, zoom: 1.15, lookX: 0.5, lookY: 0.3 },
-    to: { x: 0.50, y: 0.45, zoom: 1.00, lookX: -0.3, lookY: 0.0 },
+    to: { x: 0.50, y: 0.45, zoom: 1.04, lookX: -0.3, lookY: 0.0 },
   },
 ];
 
@@ -184,9 +184,11 @@ function createPictureMaterial(image, depth) {
       }
 
       void main() {
-        vec4 sampleA = sampleCamera(viewA, lookA);
-        vec4 sampleB = sampleCamera(viewB, lookB);
-        vec4 picture = mix(sampleA, sampleB, cameraMix);
+        // 切り替えの途中だけ2つ目のカメラを読む（ふだんは1回分で済ませる）
+        vec4 picture = sampleCamera(viewA, lookA);
+        if (cameraMix > 0.0) {
+          picture = mix(picture, sampleCamera(viewB, lookB), cameraMix);
+        }
 
         float crystalStrength =
           0.30 + 0.15 * sin(time * 6.28318530718 / 2.5);
