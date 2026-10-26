@@ -1,31 +1,32 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../world/random.js';
 
-export const SHOT_SECONDS = 5;
-export const FADE_SECONDS = 0.8;
+// スライドに使う4枚の絵（calm・glow・surge は同じ構図で、力がたまっていく順。clash は衝突の瞬間）
+export const TITLE_PICTURES = ['calm', 'glow', 'surge', 'clash'];
 
+const CALM_START = { x: 0.50, y: 0.45, zoom: 1.04, lookX: -1.0, lookY: 0.0 };
+const CALM_END = { x: 0.56, y: 0.44, zoom: 1.18, lookX: 0.2, lookY: 0.1 };
+const GLOW_END = { x: 0.64, y: 0.44, zoom: 1.42, lookX: 0.8, lookY: 0.1 };
+const SURGE_END = { x: 0.70, y: 0.46, zoom: 1.70, lookX: 1.0, lookY: -0.2 };
+
+// 場面。x, y は絵の中の「画面の中心に来る点」（0〜1、x は左から、y は上から）
+// zoom：1 = 絵が画面をちょうど覆う大きさ。lookX, lookY：カメラの横・縦のずれ（-1〜1）
+// seconds：場面の長さ。fade：場面の最後の、次の場面へ移る時間
+// transition：'fade' は溶けて変わる、'flash' は閃光のいちばん明るい所で切り替わり、次の場面の始めに一度揺れる
+// calm → glow → surge は、前の場面の to を次の from にして、同じカメラのまま絵だけが変わって見えるようにする
 export const TITLE_SHOTS = [
+  { picture: 'calm', seconds: 4, fade: 1.2, transition: 'fade', from: CALM_START, to: CALM_END },
+  { picture: 'glow', seconds: 4, fade: 1.0, transition: 'fade', from: CALM_END, to: GLOW_END },
+  { picture: 'surge', seconds: 3, fade: 0.5, transition: 'flash', from: GLOW_END, to: SURGE_END },
   {
-    name: 'wide',
-    from: { x: 0.50, y: 0.45, zoom: 1.04, lookX: -1.0, lookY: 0.0 },
-    to: { x: 0.52, y: 0.45, zoom: 1.10, lookX: 1.0, lookY: 0.2 },
-  },
-  {
-    name: 'beast',
-    from: { x: 0.74, y: 0.45, zoom: 1.80, lookX: 0.6, lookY: -0.3 },
-    to: { x: 0.72, y: 0.46, zoom: 2.10, lookX: -0.4, lookY: 0.2 },
-  },
-  {
-    name: 'hero',
-    from: { x: 0.30, y: 0.55, zoom: 1.70, lookX: -0.5, lookY: -0.6 },
-    to: { x: 0.30, y: 0.36, zoom: 1.85, lookX: 0.3, lookY: 0.5 },
-  },
-  {
-    name: 'final',
-    from: { x: 0.50, y: 0.42, zoom: 1.15, lookX: 0.5, lookY: 0.3 },
-    to: { x: 0.50, y: 0.45, zoom: 1.04, lookX: -0.3, lookY: 0.0 },
+    picture: 'clash', seconds: 4.5, fade: 1.0, transition: 'fade',
+    from: { x: 0.50, y: 0.55, zoom: 1.06, lookX: -0.6, lookY: 0.0 },
+    to: { x: 0.52, y: 0.50, zoom: 1.30, lookX: 0.6, lookY: 0.2 },
   },
 ];
+
+// 閃光のあと、次の場面の始めに揺れている時間
+const SHAKE_SECONDS = 0.4;
 
 const IMAGE_ASPECT = 1672 / 941;
 const EMBER_COUNT = 70;
@@ -46,33 +47,43 @@ function interpolateCamera(from, to, amount) {
   };
 }
 
+// time 秒のときのカメラと絵。純粋な関数
+// -> { a, b: Camera, mix, pictureA, pictureB, flash（0〜1）, shake（0〜1） }
 export function shotAt(time, shots = TITLE_SHOTS) {
   const sequence = Array.isArray(shots) && shots.length > 0
     ? shots
     : TITLE_SHOTS;
   const safeTime = Number.isFinite(time) && time >= 0 ? time : 0;
-  const totalDuration = SHOT_SECONDS * sequence.length;
-  const cycleTime = safeTime % totalDuration;
-  const index = Math.floor(cycleTime / SHOT_SECONDS);
-  const shotTime = cycleTime - index * SHOT_SECONDS;
-  const shot = sequence[index];
-
-  const progress = easeInOut(shotTime / SHOT_SECONDS);
-  const a = interpolateCamera(shot.from, shot.to, progress);
-
-  const fadeStart = SHOT_SECONDS - FADE_SECONDS;
-  if (shotTime < fadeStart) {
-    return { a, b: a, mix: 0 };
+  const totalDuration = sequence.reduce((sum, shot) => sum + shot.seconds, 0);
+  let shotTime = safeTime % totalDuration;
+  let index = 0;
+  while (shotTime >= sequence[index].seconds) {
+    shotTime -= sequence[index].seconds;
+    index += 1;
   }
-
+  const shot = sequence[index];
+  const previous = sequence[(index - 1 + sequence.length) % sequence.length];
   const nextShot = sequence[(index + 1) % sequence.length];
-  const fadeProgress = easeInOut((shotTime - fadeStart) / FADE_SECONDS);
 
-  return {
-    a,
-    b: { ...nextShot.from },
-    mix: fadeProgress,
-  };
+  const a = interpolateCamera(shot.from, shot.to, easeInOut(shotTime / shot.seconds));
+  const shake = previous.transition === 'flash' && shotTime < SHAKE_SECONDS
+    ? 1 - shotTime / SHAKE_SECONDS
+    : 0;
+  const state = { a, b: a, mix: 0, pictureA: shot.picture, pictureB: shot.picture, flash: 0, shake };
+
+  const fadeStart = shot.seconds - shot.fade;
+  if (shotTime < fadeStart) return state;
+
+  const progress = (shotTime - fadeStart) / shot.fade;
+  state.b = { ...nextShot.from };
+  state.pictureB = nextShot.picture;
+  if (shot.transition === 'flash') {
+    state.mix = progress >= 0.5 ? 1 : 0;
+    state.flash = easeInOut(1 - Math.abs(progress * 2 - 1));
+  } else {
+    state.mix = easeInOut(progress);
+  }
+  return state;
 }
 
 function getTextureAspect(texture) {
@@ -92,12 +103,15 @@ function getTextureAspect(texture) {
   return IMAGE_ASPECT;
 }
 
-function createPictureMaterial(image, depth) {
+function createPictureMaterial(first) {
   return new THREE.ShaderMaterial({
     uniforms: {
-      imageTexture: { value: image },
-      depthTexture: { value: depth },
-      imageAspect: { value: getTextureAspect(image) },
+      imageA: { value: first.image },
+      depthA: { value: first.depth },
+      imageB: { value: first.image },
+      depthB: { value: first.depth },
+      flash: { value: 0 },
+      imageAspect: { value: getTextureAspect(first.image) },
       screenAspect: { value: 844 / 390 },
       viewA: { value: new THREE.Vector3() },
       lookA: { value: new THREE.Vector2() },
@@ -117,8 +131,11 @@ function createPictureMaterial(image, depth) {
       }
     `,
     fragmentShader: `
-      uniform sampler2D imageTexture;
-      uniform sampler2D depthTexture;
+      uniform sampler2D imageA;
+      uniform sampler2D depthA;
+      uniform sampler2D imageB;
+      uniform sampler2D depthB;
+      uniform float flash;
       uniform float imageAspect;
       uniform float screenAspect;
       uniform vec3 viewA;
@@ -153,7 +170,7 @@ function createPictureMaterial(image, depth) {
         );
       }
 
-      vec2 parallaxUv(vec2 baseUv, vec2 look, float zoom) {
+      vec2 parallaxUv(sampler2D depthTexture, vec2 baseUv, vec2 look, float zoom) {
         vec2 sampleUv = baseUv;
 
         // 奥行きを読み直しながら、ずらした位置と奥行きが合う場所を探す。
@@ -174,9 +191,9 @@ function createPictureMaterial(image, depth) {
       }
 
       // rgb は絵の色、a は同じ場所の結晶マスク。
-      vec4 sampleCamera(vec3 view, vec2 look) {
+      vec4 sampleCamera(sampler2D imageTexture, sampler2D depthTexture, vec3 view, vec2 look) {
         vec2 baseUv = framedUv(vUv, view);
-        vec2 sampleUv = parallaxUv(baseUv, look, view.z);
+        vec2 sampleUv = parallaxUv(depthTexture, baseUv, look, view.z);
         vec3 color = texture2D(imageTexture, sampleUv).rgb;
         float crystal = texture2D(depthTexture, sampleUv).g;
 
@@ -185,13 +202,18 @@ function createPictureMaterial(image, depth) {
 
       void main() {
         // 切り替えの途中だけ2つ目のカメラを読む（ふだんは1回分で済ませる）
-        vec4 picture = sampleCamera(viewA, lookA);
-        if (cameraMix > 0.0) {
-          picture = mix(picture, sampleCamera(viewB, lookB), cameraMix);
+        vec4 picture;
+        if (cameraMix >= 1.0) {
+          picture = sampleCamera(imageB, depthB, viewB, lookB);
+        } else {
+          picture = sampleCamera(imageA, depthA, viewA, lookA);
+          if (cameraMix > 0.0) {
+            picture = mix(picture, sampleCamera(imageB, depthB, viewB, lookB), cameraMix);
+          }
         }
 
         float crystalStrength =
-          0.30 + 0.15 * sin(time * 6.28318530718 / 2.5);
+          0.16 + 0.10 * sin(time * 6.28318530718 / 2.5);
         vec3 color =
           picture.rgb + crystalColor * picture.a * crystalStrength;
 
@@ -200,6 +222,8 @@ function createPictureMaterial(image, depth) {
         float vignette =
           1.0 - 0.32 * smoothstep(0.18, 0.50, edgeDistance);
         color *= vignette;
+        // 衝突の閃光：青白く明るくする（形が読める程度にとどめる）
+        color = mix(color, vec3(0.92, 0.98, 1.0) * 1.15, flash * 0.8);
 
         gl_FragColor = vec4(color, 1.0);
 
@@ -356,7 +380,8 @@ function createEmbers() {
   };
 }
 
-export function createTitleScene({ image, depth }) {
+// pictures：{ calm: { image, depth }, glow: …, surge: …, clash: … }（TITLE_PICTURES の名前ごと）
+export function createTitleScene({ pictures }) {
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(
     -1,
@@ -369,7 +394,7 @@ export function createTitleScene({ image, depth }) {
   camera.position.z = 1;
 
   const pictureGeometry = new THREE.PlaneGeometry(2, 2);
-  const pictureMaterial = createPictureMaterial(image, depth);
+  const pictureMaterial = createPictureMaterial(pictures[TITLE_SHOTS[0].picture]);
   const picture = new THREE.Mesh(
     pictureGeometry,
     pictureMaterial,
@@ -387,12 +412,19 @@ export function createTitleScene({ image, depth }) {
   let reducedMotion = false;
   let disposed = false;
 
-  function applyCameraState(state) {
+  // 閃光のあとの揺れ：カメラの中心を細かくずらす（time は揺れの向きを変えるためだけに使う）
+  function applyCameraState(state, time = 0) {
     const { uniforms } = pictureMaterial;
+    const jitter = state.shake * 0.006;
 
+    uniforms.imageA.value = pictures[state.pictureA].image;
+    uniforms.depthA.value = pictures[state.pictureA].depth;
+    uniforms.imageB.value = pictures[state.pictureB].image;
+    uniforms.depthB.value = pictures[state.pictureB].depth;
+    uniforms.flash.value = state.flash;
     uniforms.viewA.value.set(
-      state.a.x,
-      state.a.y,
+      state.a.x + Math.sin(time * 61) * jitter,
+      state.a.y + Math.cos(time * 53) * jitter,
       state.a.zoom,
     );
     uniforms.lookA.value.set(
@@ -413,10 +445,15 @@ export function createTitleScene({ image, depth }) {
 
   function applyReducedMotionCamera() {
     const fixed = TITLE_SHOTS[0].from;
+    const picture = TITLE_SHOTS[0].picture;
     applyCameraState({
       a: fixed,
       b: fixed,
       mix: 0,
+      pictureA: picture,
+      pictureB: picture,
+      flash: 0,
+      shake: 0,
     });
   }
 
@@ -433,7 +470,7 @@ export function createTitleScene({ image, depth }) {
     const { uniforms } = pictureMaterial;
 
     uniforms.screenAspect.value = safeWidth / safeHeight;
-    uniforms.imageAspect.value = getTextureAspect(image);
+    uniforms.imageAspect.value = getTextureAspect(pictures[TITLE_SHOTS[0].picture].image);
     embers.material.uniforms.pointScale.value =
       (safeHeight / 390) * (Number.isFinite(pixelRatio) && pixelRatio > 0 ? pixelRatio : 1);
 
@@ -442,7 +479,7 @@ export function createTitleScene({ image, depth }) {
       return;
     }
 
-    applyCameraState(shotAt(safeTime));
+    applyCameraState(shotAt(safeTime), safeTime);
     uniforms.time.value = safeTime;
     embers.update(safeTime);
   }

@@ -23,7 +23,7 @@ import { createStick } from './ui/stick.js';
 import { createHud } from './ui/hud.js';
 import { createMinimap } from './ui/minimap.js';
 import { createTitleScreen } from './ui/titleScreen.js';
-import { createTitleScene } from './ui/titleScene.js';
+import { createTitleScene, TITLE_PICTURES } from './ui/titleScene.js';
 import { createPauseMenu } from './ui/pauseMenu.js';
 import { createTutorial, createTutorialView } from './ui/tutorial.js';
 import { nextState } from './game/flow.js';
@@ -42,7 +42,7 @@ const minimap = createMinimap(hud.minimapCanvas);
 const tutorialView = createTutorialView(app);
 const pauseMenu = createPauseMenu(app);
 const titleScreen = createTitleScreen(app, {
-  image: asset('textures/title-art.webp'),
+  image: asset('textures/title-calm.webp'),
   logo: asset('textures/title-logo.webp'),
 });
 
@@ -57,17 +57,20 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 
 const scene = new THREE.Scene();
 
-// ── タイトルの3D写真：絵と奥行きの地図が読めたら、止まった絵の代わりに使う ──
+// ── タイトルの3D写真のスライド：4枚の絵と奥行きの地図がすべて読めたら、止まった絵の代わりに使う ──
 let titleScene = null;
 let titleTime = 0;
 const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
 const titleLoader = new THREE.TextureLoader();
-Promise.all([
-  titleLoader.loadAsync(asset('textures/title-art.webp')),
-  titleLoader.loadAsync(asset('textures/title-depth.png')),
-]).then(([image, depth]) => {
+Promise.all(TITLE_PICTURES.map(async (name) => {
+  const [image, depth] = await Promise.all([
+    titleLoader.loadAsync(asset(`textures/title-${name}.webp`)),
+    titleLoader.loadAsync(asset(`textures/title-${name}-depth.png`)),
+  ]);
   image.colorSpace = THREE.SRGBColorSpace;
-  titleScene = createTitleScene({ image, depth });
+  return [name, { image, depth }];
+})).then((loaded) => {
+  titleScene = createTitleScene({ pictures: Object.fromEntries(loaded) });
   titleScene.setReducedMotion(Boolean(reducedMotion?.matches));
   reducedMotion?.addEventListener?.('change', (event) => titleScene.setReducedMotion(event.matches));
   titleScreen.setDepthMode(true);
