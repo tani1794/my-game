@@ -25,6 +25,9 @@ import { createHud } from './ui/hud.js';
 import { createMinimap } from './ui/minimap.js';
 import { createTitleScreen } from './ui/titleScreen.js';
 import { createSilentScene } from './title/silentScene.js';
+import { createStoryHud } from './ui/storyHud.js';
+import { createChapterRunner } from './chapter/runner.js';
+import { createProgress } from './story/progress.js';
 import { createPauseMenu } from './ui/pauseMenu.js';
 import { createTutorial, createTutorialView } from './ui/tutorial.js';
 import { nextState } from './game/flow.js';
@@ -42,6 +45,7 @@ const combatHud = createCombatHud(app);
 const minimap = createMinimap(hud.minimapCanvas);
 const tutorialView = createTutorialView(app);
 const pauseMenu = createPauseMenu(app);
+const storyHud = createStoryHud(app);
 const titleScreen = createTitleScreen(app, {
   image: asset('textures/silent-art.webp'),
   logo: asset('textures/silent-title.webp'),
@@ -188,7 +192,11 @@ createVegetation(scene, QUALITY_PRESETS[quality.tier], terrain.heightAt).then((l
   loaded.setGrassCount(QUALITY_PRESETS[quality.tier].grass);
 });
 
+// 第一章の画質は、物語パートを作ったあとで合わせる（applyQuality が先に呼ばれるため）
+let chapterQuality = null;
+
 function applyQuality(preset) {
+  chapterQuality?.(preset);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, preset.pixelRatio));
   lighting.setQuality(preset);
   post.setQuality(preset);
@@ -238,19 +246,60 @@ function toScreen(x, y, z) {
   return { x: (projected.x + 1) / 2 * window.innerWidth, y: (1 - projected.y) / 2 * window.innerHeight };
 }
 
-// ── 画面の流れ：タイトル → 戦い ⇄ 一時停止、戦い → 結果 → 戦い／タイトル ──
+// ── 画面の流れ：タイトル → 物語（第一章）→ 結晶獣戦 ⇄ 一時停止、戦い → 結果 → 戦い／タイトル ──
 const TUTORIAL_PLAYS = 3;
 const records = createRecords();
 const tutorial = createTutorial();
 let state = 'title';
+
+// ── 第一章「霧の向こうの声」：森と礼拝堂。章の終わりの巡礼路から結晶獣戦へ ──
+const storyProgress = createProgress();
+const chapter = createChapterRunner({
+  renderer,
+  followCamera,
+  input,
+  stick,
+  hud,
+  combatHud,
+  storyHud,
+  sound,
+  preset: QUALITY_PRESETS[quality.tier],
+  lite: Boolean(window.matchMedia?.('(pointer: coarse)').matches),
+  onToCrystal: () => {
+    if (!go('battle')) return;
+    storyProgress.advance('CRYSTAL_BATTLE');
+    chapter.stop();
+    app.classList.remove('story-mode');
+    combatHud.setBeastVisible(Boolean(beast));
+    beginFight();
+  },
+});
+if (quality.debug) {
+  window.__chapter = chapter;
+  window.__setYaw = (yaw) => followCamera.setYaw(yaw);
+  window.__setPitch = (pitch) => followCamera.setPitch(pitch);
+}
+chapterQuality = (preset) => chapter.setQuality(preset);
 
 // 切り替えは必ずここを通す。その状態で許されない操作なら false
 function go(action) {
   const next = nextState(state, action);
   if (next === null) return false;
   state = next;
-  pauseMenu.setButtonVisible(state === 'playing');
+  pauseMenu.setButtonVisible(state === 'playing' || state === 'story');
+  // 物語の間は、結晶獣戦の表示（右上のクエスト・地図・体力バー）を隠す
+  app.classList.toggle('story-mode', state === 'story' || state === 'storyPaused');
   return true;
+}
+
+// 物語に入る：保存があれば続きから、なければ森で目覚めるところから
+function beginStory() {
+  resetFight();
+  sound.stopMusic(1.5);
+  combatHud.setBeastVisible(false);
+  autoDowngrade?.reset();
+  clickSound();
+  chapter.start(storyProgress);
 }
 
 // 主人公・結晶獣・予告・画面・ロックオン・入力を最初に戻す
@@ -285,6 +334,9 @@ function beginFight() {
 }
 
 function showTitle() {
+  chapter.stop();
+  app.classList.remove('story-mode');
+  if (beast) combatHud.setBeastVisible(true);
   resetFight();
   playTitleMusic(sound);
   titleScreen.show(records.best());
@@ -306,10 +358,10 @@ function leavePause(action) {
 }
 
 titleScreen.onStart(() => {
-  if (!go('start')) return;
+  if (!go('story')) return;
   titleScreen.hide();
   sound.unlock();
-  beginFight();
+  beginStory();
 });
 
 combatHud.onRetry(() => {
@@ -327,7 +379,11 @@ pauseMenu.on('resume', () => {
   if (leavePause('resume')) clickSound();
 });
 pauseMenu.on('retry', () => {
-  if (leavePause('retry')) beginFight();
+  // 物語ではチェックポイントから、結晶獣戦では最初から
+  const inStory = state === 'storyPaused';
+  if (!leavePause('retry')) return;
+  if (inStory) chapter.respawn();
+  else beginFight();
 });
 pauseMenu.on('title', () => {
   if (leavePause('title')) showTitle();
@@ -348,16 +404,16 @@ pauseMenu.on('quality', (tier) => {
 window.addEventListener('keydown', (event) => {
   // 押しっぱなしの繰り返しは数えない（止めたつもりが再開しないように）
   if (event.code !== 'Escape' || event.repeat) return;
-  if (state === 'playing') pause();
-  else if (state === 'paused' && leavePause('resume')) clickSound();
+  if (state === 'playing' || state === 'story') pause();
+  else if ((state === 'paused' || state === 'storyPaused') && leavePause('resume')) clickSound();
 });
 
 // アプリが裏に回ったら音を止める。戦いの途中なら一時停止にして、戻っても止めたままにする
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    if (state === 'playing') pause();
+    if (state === 'playing' || state === 'story') pause();
     sound.suspend();
-  } else if (state !== 'paused') {
+  } else if (state !== 'paused' && state !== 'storyPaused') {
     sound.resume();
   }
 });
@@ -479,6 +535,7 @@ function clearInput() {
 window.addEventListener('blur', clearInput);
 document.addEventListener('visibilitychange', clearInput);
 
+const FAST_DEBUG = quality.debug && new URLSearchParams(window.location.search).has('fast');
 let lastTime = performance.now();
 let warmedUp = false;
 
@@ -502,7 +559,18 @@ function animate(now) {
   // 止めている間も時刻は進めておく（再開した瞬間に大きく進まないように）
   lastTime = now;
 
-  if (state === 'paused') return;
+  if (state === 'paused' || state === 'storyPaused') return;
+  if (state === 'story') {
+    const loweredInStory = autoDowngrade?.update(rawDt);
+    if (loweredInStory) {
+      quality.tier = loweredInStory;
+      applyQuality(QUALITY_PRESETS[loweredInStory]);
+    }
+    if (quality.debug) updateFps(rawDt);
+    // ?debug&fast：遅い確認用ブラウザでも、ゲームの時間が実際の時間と同じ速さで進むようにする
+    chapter.update(FAST_DEBUG ? Math.min(rawDt, 0.3) : dt, now / 1000);
+    return;
+  }
   if (state === 'title') {
     warmUp();
     if (titleScene) {
@@ -541,6 +609,7 @@ function resize() {
   followCamera.resize(window.innerWidth, window.innerHeight);
   renderer.setSize(window.innerWidth, window.innerHeight);
   post.setSize(window.innerWidth, window.innerHeight);
+  chapter.resize(window.innerWidth, window.innerHeight);
   // 大きさを変えると絵が消えるので、止めている間も1回描き直す
   if (state === 'title' && titleScene) renderTitle();
   else post.render();

@@ -37,8 +37,8 @@ function recolor(model) {
     if (!part.isMesh) return;
     part.material = part.material.clone();
     const name = part.material.name.toLowerCase();
-    if (name.includes('leaf') || name.includes('grass')) part.material.color.set('#2d4a2b');
-    else if (name.includes('wood')) part.material.color.set(name.includes('inner') ? '#6b5a44' : '#3a3026');
+    if (name.includes('leaf') || name.includes('grass')) part.material.color.set('#4f7346');
+    else if (name.includes('wood')) part.material.color.set(name.includes('inner') ? '#8a7558' : '#5e4c3c');
     else if (name.includes('yellow')) part.material.color.set('#eeeee6');
     else if (name.includes('dirt')) part.material.color.set('#3d3428');
     else if (name.includes('tan')) part.material.color.set('#b49a78');
@@ -494,7 +494,7 @@ function createLightShafts() {
   ctx.fillStyle = side;
   ctx.fillRect(0, 0, 64, 256);
   const texture = new THREE.CanvasTexture(canvas);
-  const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, opacity: 0.35, fog: false });
+  const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, opacity: 0.16, fog: false });
   const group = new THREE.Group();
   const random = mulberry32(41);
   for (const [cx, cz, count] of [[0, 18, 4], [0, -4, 2], [2, 42, 2], [-36, 11, 2], [36, -10, 2]]) {
@@ -575,12 +575,13 @@ export async function createForest(scene, materials, { lite = false, load = load
   const ivy = [];
   for (let x = GATEHOUSE.x0 + 0.6; x < GATEHOUSE.x1; x += 1.1) {
     if (random() < 0.4) continue;
-    ivy.push({ x, z: GATEHOUSE.z1 + 0.05, y: heightAt(0, -24) + 3.6, turn: 0, size: 1 });
-    ivy.push({ x, z: GATEHOUSE.z0 - 0.05, y: heightAt(0, -24) + 3.6, turn: Math.PI, size: 1 });
+    // 蔦は壁の上から垂れ下がる（モデルを上下逆さにして、壁の外側に沿わせる）
+    ivy.push({ x, z: GATEHOUSE.z1 + 0.15, y: heightAt(0, -24) + 3.8, turn: 0, tilt: Math.PI, size: 1 });
+    ivy.push({ x, z: GATEHOUSE.z0 - 0.15, y: heightAt(0, -24) + 3.8, turn: Math.PI, tilt: Math.PI, size: 1 });
   }
   for (let z = -36; z < 46; z += 2.5) {
     if (random() < 0.5 || Math.abs(z - GATE.z) < 4) continue;
-    ivy.push({ x: GATE.x - 0.5, z, y: groundHeight(GATE.x, z) + 2, turn: -Math.PI / 2, size: 1 });
+    ivy.push({ x: GATE.x - 0.55, z, y: groundHeight(GATE.x, z) + 2.2, turn: -Math.PI / 2, tilt: Math.PI, size: 1 });
   }
   root.add(instance(models.moss, ivy, (p, size) => 2.2 / size.y, { shadow: false, wind: propWind }));
 

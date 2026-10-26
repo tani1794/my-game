@@ -7,6 +7,8 @@ const LINE_BASE = 1.4;
 const LINE_PER_CHAR = 0.09;
 const LINE_MIN = 2.2;
 
+// タップで送る場面。危険の知らせでも割り込まない
+const BLOCKING_SCENES = new Set(['wake', 'memory']);
 const lineSeconds = (text) => Math.max(LINE_MIN, LINE_BASE + LINE_PER_CHAR * text.length);
 const PHASE_ORDER = ['TITLE', 'PROLOGUE', 'FOREST', 'CHAPEL_APPROACH', 'CHAPEL_INTERIOR', 'CHAPTER_COMPLETE', 'CRYSTAL_BATTLE'];
 const atLeast = (progress, phase) => PHASE_ORDER.indexOf(progress.phase()) >= PHASE_ORDER.indexOf(phase);
@@ -55,8 +57,16 @@ export function createDirector(progress, { scenes = SCENES } = {}) {
     }
     const scene = { id, steps: scenes[id], index: 0, timer: 0 };
     if (urgent) {
-      // 危険の知らせ：今の場面を一旦止めて、先に流す（止めた場面は続きから）
-      if (current) queue.unshift(current);
+      // タップ待ちの場面（目覚め・記憶）は止めず、その直後に流す
+      if (current && BLOCKING_SCENES.has(current.id)) {
+        queue.unshift(scene);
+        return;
+      }
+      // 危険の知らせ：今の場面を一旦止めて、先に流す。止めた場面は、その行の頭から出し直す
+      if (current) {
+        current.timer = 0;
+        queue.unshift(current);
+      }
       current = scene;
       subtitle = null;
       waitingTap = false;
@@ -68,7 +78,8 @@ export function createDirector(progress, { scenes = SCENES } = {}) {
 
   // 字幕以外の手順を、すぐに実行する
   function apply(step) {
-    if (step.objective !== undefined) objective = step.objective;
+    // 目的は、いつも今の進み具合から決める（後から流れた古い場面に上書きされないように）
+    if (step.objective !== undefined) objective = objectiveFor(progress);
     if (step.set) progress.set(step.set);
     if (step.phase) progress.advance(step.phase);
     if (step.checkpoint) progress.reach(step.checkpoint);
@@ -165,27 +176,37 @@ export function createDirector(progress, { scenes = SCENES } = {}) {
 
     const id = signals.interact;
     if (!id || !interactablesFor(progress).includes(id)) return;
-    if (id === 'flowers') play('flowers');
-    if (id === 'memorial') play('memorial');
-    if (id === 'gate') play('gateLocked', { once: false });
-    if (id === 'winch') play('winchJammed');
+    // 調べたときの反応は、エリアの話より先に出す（タップ待ちの場面には割り込まない）
+    const now = { urgent: true };
+    if (id === 'flowers') play('flowers', now);
+    if (id === 'memorial') play('memorial', now);
+    if (id === 'gate') play('gateLocked', { ...now, once: false });
+    if (id === 'winch') play('winchJammed', now);
     if (id === 'lever') {
-      if (progress.flag('winchFreed')) play('leverPulled');
-      else play('leverStuck', { once: false });
+      if (progress.flag('winchFreed')) play('leverPulled', now);
+      else play('leverStuck', { ...now, once: false });
     }
-    if (id === 'mural') play('memory');
-    if (id === 'altar') play('altar');
+    if (id === 'mural') play('memory', now);
+    if (id === 'altar') play('altar', now);
     if (id === 'pilgrimPath') actions.push('toCrystal');
   }
 
+  // 記憶の場面のうち、タップで送る部分（memoryEnd の手前まで）にいるか
+  function inMemoryPart() {
+    if (current?.id !== 'memory') return false;
+    const end = current.steps.findIndex((step) => step.label === 'memoryEnd');
+    return current.index < end;
+  }
+
   function output() {
+    const memory = inMemoryPart();
     const out = {
       subtitle,
       waitingTap,
       objective,
       control,
-      blocking: waitingTap || current?.id === 'memory' || (current?.id === 'wake' && !control),
-      inMemory: current?.id === 'memory',
+      blocking: waitingTap || memory || (current?.id === 'wake' && !control),
+      inMemory: memory,
       actions,
       interactables: interactablesFor(progress),
     };

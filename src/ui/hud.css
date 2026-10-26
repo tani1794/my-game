@@ -249,3 +249,9 @@ html, body, #app {
   .attack { --icon: 36px; }
   .run { --icon: 20px; }
 }
+
+/* 物語（第一章）の間は、結晶獣戦の表示を隠す（右上のクエストと地図、下のゲーム名） */
+.story-mode .quest-column,
+.story-mode .logo {
+  display: none;
+}

@@ -73,12 +73,12 @@ export const SCENES = {
     { set: 'gateInspected' },
     { objective: OBJECTIVES.winch },
   ],
+  // 調べた瞬間に瓦礫を取り除く（すぐにレバーを引けるように）
   winchJammed: [
-    { say: [NARRATION, '巻き上げ機の歯車に、崩れた瓦礫が噛んでいる。'] },
     { action: 'clearRubble' },
-    { wait: 0.8 },
-    { say: [NARRATION, '瓦礫を取り除いた。これで鎖を巻き上げられる。'] },
     { set: 'winchFreed' },
+    { say: [NARRATION, '巻き上げ機の歯車に噛んでいた瓦礫を、取り除いた。'] },
+    { say: [NARRATION, 'これで鎖を巻き上げられる。脇のレバーだ。'] },
   ],
   leverStuck: [
     { say: [NARRATION, 'レバーは動かない。巻き上げ機のどこかが引っかかっている。'] },

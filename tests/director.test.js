@@ -199,3 +199,64 @@ test('祭壇で章が終わり、巡礼路から結晶獣の区画へ', () => {
   const go = director.update(0.1, { ...quiet, interact: 'pilgrimPath' });
   expect(go.actions).toContain('toCrystal');
 });
+
+test('タップ待ちの場面の途中で敵に気づかれても、場面は止まらず、知らせはその直後に出る', () => {
+  const progress = createProgress(memoryStorage());
+  const director = createDirector(progress);
+  director.begin();
+  // 1行目のタップ待ちまで進める
+  let out;
+  for (let n = 0; n < 50 && !out?.waitingTap; n++) out = director.update(0.1, quiet);
+  out = director.update(0.1, { ...quiet, noticed: ['guard-2'] });
+  expect(out.waitingTap).toBe(true);
+  expect(out.subtitle.text).toBe('……聞こえますか？');
+  const rest = tapThrough(director, 3);
+  expect(rest[0]).toBe('……聞こえますか？');
+  expect(run(director, 30).said).toContain('二人います。……気をつけて。');
+});
+
+test('自動の場面に知らせが割り込んだあと、元の行を頭から出し直す', () => {
+  const { director } = afterWake();
+  director.update(0.1, { ...quiet, zones: ['plaza'] });
+  run(director, 1);
+  director.update(0.1, { ...quiet, noticed: ['guard-3'] });
+  const { said } = run(director, 20);
+  expect(said).toContain('この広場……北に、古い門衛所があったはずです。');
+  expect(said).toContain('その先の橋を渡れば、礼拝堂へ行けます。');
+});
+
+test('調べたときの反応は、エリアの話の途中でもすぐに出る', () => {
+  const { director } = afterWake();
+  director.update(0.1, { ...quiet, zones: ['plaza'] });
+  run(director, 1);
+  const out = director.update(0.1, { ...quiet, interact: 'winch' });
+  expect(out.subtitle.text).toBe('巻き上げ機の歯車に噛んでいた瓦礫を、取り除いた。');
+});
+
+test('瓦礫をどけた時点で、レバーが引ける', () => {
+  const { director, progress } = afterWake();
+  const first = director.update(0.1, { ...quiet, interact: 'winch' });
+  expect(first.actions).toContain('clearRubble');
+  expect(progress.flag('winchFreed')).toBe(true);
+});
+
+test('身廊の会話の途中で壁画を調べても、記憶のあとの目的は「祭壇を調べる」', () => {
+  const { director, progress } = afterWake();
+  progress.set('gateOpen');
+  run(director, 12, { zones: ['chapelFront'] });
+  director.update(0.1, { ...quiet, zones: ['nave'] });
+  director.update(0.1, { ...quiet, interact: 'mural' });
+  run(director, 1, { skip: true });
+  const { out } = run(director, 30);
+  expect(out.objective).toBe(OBJECTIVES.altar);
+});
+
+test('記憶が終われば、エリアが話している間も動ける', () => {
+  const { director, progress } = atChapel();
+  director.update(0.1, { ...quiet, interact: 'mural' });
+  run(director, 1, { skip: true });
+  const out = run(director, 2).out;
+  expect(progress.flag('memorySeen')).toBe(true);
+  expect(out.blocking).toBe(false);
+  expect(out.inMemory).toBe(false);
+});

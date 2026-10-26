@@ -142,8 +142,18 @@ export function createChapel(scene, materials) {
   const towerBack = wallWithHoles(stone, towerW, towerTop, t, [lancet(towerW / 2, 0, door * 2, 2.6, 1.3), lancet(towerW / 2, towerTop - 6, 1.4, 2.6, 1.2)]);
   towerBack.position.set(tw.x0, floorY, tw.z0);
   keep(towerBack);
-  root.add(box(stone, towerW + 0.4, 0.5, towerD + 0.4, cx, floorY + towerTop + 0.25, (tw.z0 + tw.z1) / 2));
-  const spire = new THREE.Mesh(new THREE.ConeGeometry(2.6, 15, 8), stone);
+  // 尖塔は森のどこからでも木々の上に見えるよう、霧のかかり方を弱くした石にする（進む方向の目印）
+  const landmark = stone.clone();
+  landmark.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace('#include <fog_fragment>', `
+      #ifdef USE_FOG
+        float landmarkDepth = vFogDepth * 0.38;
+        float fogFactor = 1.0 - exp( - fogDensity * fogDensity * landmarkDepth * landmarkDepth );
+        gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );
+      #endif`);
+  };
+  root.add(box(landmark, towerW + 0.4, 0.5, towerD + 0.4, cx, floorY + towerTop + 0.25, (tw.z0 + tw.z1) / 2));
+  const spire = new THREE.Mesh(new THREE.ConeGeometry(2.6, 15, 8), landmark);
   spire.position.set(cx, floorY + towerTop + 0.5 + 7.5, (tw.z0 + tw.z1) / 2);
   spire.castShadow = true;
   root.add(spire);

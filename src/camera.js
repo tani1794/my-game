@@ -32,7 +32,7 @@ const SHAKE_AMOUNT = 0.15;
 // 壁で寄ったあと、元の距離へ戻る速さ（1秒に何 m）
 const ZOOM_RETURN_SPEED = 3;
 const GROUND_CLEARANCE = 0.4;
-const MIN_DISTANCE = 0.8;
+const MIN_DISTANCE = 1.3;
 
 // 主人公の後ろから結晶獣を見る yaw（カメラは主人公から見て結晶獣の反対側）
 export function lockYaw(player, beast) {
@@ -132,6 +132,7 @@ export function createCameraRig() {
     update,
     yaw: () => wrap(yaw + lookOffset),
     setYaw: (value) => { yaw = wrap(value); lookOffset = 0; },
+    setPitch: (value) => { pitch = THREE.MathUtils.clamp(value, PITCH_MIN, PITCH_MAX); },
     locked: () => lock !== null,
   };
 }
@@ -197,6 +198,7 @@ export function createFollowCamera(canvas) {
     camera,
     yaw: rig.yaw,
     setYaw: rig.setYaw,
+    setPitch: rig.setPitch,
     update,
     resize,
     clear,
