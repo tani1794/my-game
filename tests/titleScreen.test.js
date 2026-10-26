@@ -145,3 +145,23 @@ test('はじめの1回は Enter キーでも同じ（1回目は音、2回目で�
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   expect(start).toHaveBeenCalledTimes(1);
 });
+
+test('はじめから：保存があるときだけ出て、2回押すと onNewGame（画面のタップとしては数えない）', () => {
+  const { root, title } = make();
+  const start = vi.fn();
+  const fresh = vi.fn();
+  title.onStart(start);
+  title.onNewGame(fresh);
+  title.show(null);
+  const button = root.querySelector('.title-new-game');
+  expect(button.hidden).toBe(true);
+  title.setNewGame(true);
+  expect(button.hidden).toBe(false);
+  button.click();
+  expect(fresh).not.toHaveBeenCalled();
+  expect(button.textContent).toContain('もう一度');
+  button.click();
+  expect(fresh).toHaveBeenCalledTimes(1);
+  expect(start).not.toHaveBeenCalled();
+  expect(button.hidden).toBe(true);
+});

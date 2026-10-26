@@ -340,6 +340,7 @@ function showTitle() {
   resetFight();
   playTitleMusic(sound);
   titleScreen.show(records.best());
+  titleScreen.setNewGame(storyProgress.hasSave());
 }
 
 function pause() {
@@ -422,7 +423,9 @@ document.addEventListener('visibilitychange', () => {
 playTitleMusic(sound);
 titleScreen.setPrelude(true);
 titleScreen.onAwaken(() => sound.unlock());
+titleScreen.onNewGame(() => storyProgress.newGame());
 titleScreen.show(records.best());
+titleScreen.setNewGame(storyProgress.hasSave());
 
 function handleEvents(events, time) {
   for (const event of events) {

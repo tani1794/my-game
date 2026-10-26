@@ -55,11 +55,33 @@ export function createTitleScreen(root, { image, logo = null }) {
 
   best.append(bestLabel, ' ', bestTime);
 
+  // はじめから（保存があるときだけ）。記録が消えるので、2回押したときだけ
+  const newGame = document.createElement('button');
+  newGame.type = 'button';
+  newGame.className = 'title-new-game';
+  newGame.hidden = true;
+  newGame.textContent = 'はじめから';
+  const newGameCallbacks = [];
+  let armed = null;
+  newGame.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (!armed) {
+      newGame.textContent = 'もう一度押すと最初から（記録は消えます）';
+      armed = setTimeout(() => { armed = null; newGame.textContent = 'はじめから'; }, 4000);
+      return;
+    }
+    clearTimeout(armed);
+    armed = null;
+    newGame.textContent = 'はじめから';
+    newGame.hidden = true;
+    for (const callback of [...newGameCallbacks]) callback();
+  });
+
   const notice = document.createElement('div');
   notice.className = 'title-notice';
   notice.hidden = true;
 
-  screen.append(blur, art, logoImage, start, best, notice);
+  screen.append(blur, art, logoImage, start, best, newGame, notice);
   root.append(screen);
 
   function begin() {
@@ -132,6 +154,14 @@ export function createTitleScreen(root, { image, logo = null }) {
 
     onAwaken(callback) {
       awakenCallbacks.push(callback);
+    },
+
+    setNewGame(visible) {
+      newGame.hidden = !visible;
+    },
+
+    onNewGame(callback) {
+      newGameCallbacks.push(callback);
     },
 
     onStart(callback) {

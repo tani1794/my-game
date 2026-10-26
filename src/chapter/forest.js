@@ -544,6 +544,17 @@ export async function createForest(scene, materials, { lite = false, load = load
   const loaded = await Promise.all(names.map((name) => tryLoad(FOREST_MODELS[name])));
   const models = Object.fromEntries(names.map((name, i) => [name, loaded[i]]));
 
+  // 小さな草花は逆光で黒い粒に見えるので、法線を真上にして地面と同じように光を受ける
+  for (const name of ['flower', 'grass', 'fern']) {
+    models[name]?.traverse((part) => {
+      if (!part.isMesh) return;
+      part.geometry = part.geometry.clone();
+      const normal = part.geometry.getAttribute('normal');
+      for (let i = 0; i < normal.count; i++) normal.setXYZ(i, 0, 1, 0);
+      part.material.side = THREE.DoubleSide;
+    });
+  }
+
   const layout = placeForest({ lite });
   const byKind = (list, kind) => list.filter((spot) => spot.kind === kind);
   const treeWind = { time: windTime, amount: 0.035 };

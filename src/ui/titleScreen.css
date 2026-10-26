@@ -204,3 +204,24 @@
   background: #07131def;
   border: 1px solid #c8ccd255;
 }
+
+/* はじめから（保存があるとき）：左上に小さく */
+.title-new-game {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: calc(16px + env(safe-area-inset-left));
+  z-index: 3;
+  padding: 6px 12px;
+  border: 1px solid #c8ccd255;
+  border-radius: 4px;
+  background: #05080b99;
+  color: #c8ccd2;
+  font: 12px system-ui, -apple-system, 'Hiragino Sans', sans-serif;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.title-new-game[hidden] {
+  display: none !important;
+}
