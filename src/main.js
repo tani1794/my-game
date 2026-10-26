@@ -22,6 +22,11 @@ import { QUALITY_PRESETS, resolveQuality, createAutoDowngrade } from './quality.
 import { createStick } from './ui/stick.js';
 import { createHud } from './ui/hud.js';
 import { createMinimap } from './ui/minimap.js';
+import { createTitleScreen } from './ui/titleScreen.js';
+import { createPauseMenu } from './ui/pauseMenu.js';
+import { createTutorial, createTutorialView } from './ui/tutorial.js';
+import { nextState } from './game/flow.js';
+import { createRecords } from './game/records.js';
 import { asset } from './paths.js';
 
 // 結晶獣の位置（ミニマップ・土ぼこり・ロックオンが読む。毎 frame、結晶獣の今の位置を書き写す）
@@ -33,6 +38,9 @@ app.innerHTML = '<canvas id="game"></canvas>';
 const hud = createHud(app);
 const combatHud = createCombatHud(app);
 const minimap = createMinimap(hud.minimapCanvas);
+const tutorialView = createTutorialView(app);
+const pauseMenu = createPauseMenu(app);
+const titleScreen = createTitleScreen(app, { image: asset('textures/title.webp') });
 
 // ── 3Dの基本設定 ──
 const canvas = document.querySelector('#game');
@@ -98,29 +106,36 @@ sound.startAmbient('wind');
 hud.setMutedIcon(sound.muted());
 
 // タッチのたびに呼ぶ（iPhone で通話などのあと止まった音も、次のタッチで再開する）
+// iPhone の Safari は指を離したときでないと音を有効にできないので、押したときと離したときの両方で試す
 function unlockSound() {
   sound.unlock();
 }
 window.addEventListener('pointerdown', unlockSound);
+window.addEventListener('pointerup', unlockSound);
+window.addEventListener('touchend', unlockSound);
 window.addEventListener('keydown', unlockSound);
+
+function clickSound() {
+  sound.play({ name: 'click', group: 'ui' });
+}
+
+// 消音：左上のボタンと一時停止メニューのどちらで変えても、両方の表示を合わせる
+function toggleMute() {
+  sound.setMuted(!sound.muted());
+  hud.setMutedIcon(sound.muted());
+  pauseMenu.setMuted(sound.muted());
+  clickSound();
+}
 
 hud.muteButton.addEventListener('pointerdown', (event) => {
   event.preventDefault();
-  sound.setMuted(!sound.muted());
-  hud.setMutedIcon(sound.muted());
-  sound.play({ name: 'click', group: 'ui' });
-});
-
-// アプリが裏に回ったら音を止め、戻ったら再開する
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) sound.suspend();
-  else sound.resume();
+  toggleMute();
 });
 const followCamera = createFollowCamera(canvas);
 
-// ── 画質：URLで固定されていなければ、fpsを見て自動で下げる ──
+// ── 画質：URLで固定されていなければ、fpsを見て自動で下げる（一時停止メニューで選んだら、それ以降は下げない） ──
 const quality = resolveQuality(window.location.search);
-const autoDowngrade = quality.locked ? null : createAutoDowngrade(quality.tier);
+let autoDowngrade = quality.locked ? null : createAutoDowngrade(quality.tier);
 const post = createPost(renderer, scene, followCamera.camera, QUALITY_PRESETS[quality.tier]);
 const effects = createEffects(scene, QUALITY_PRESETS[quality.tier], BEAST_POSITION);
 
@@ -182,10 +197,24 @@ function toScreen(x, y, z) {
   return { x: (projected.x + 1) / 2 * window.innerWidth, y: (1 - projected.y) / 2 * window.innerHeight };
 }
 
-// 「もう一度」：主人公・結晶獣・予告・画面・ロックオンを最初に戻す
-combatHud.onRetry(() => {
+// ── 画面の流れ：タイトル → 戦い ⇄ 一時停止、戦い → 結果 → 戦い／タイトル ──
+const TUTORIAL_PLAYS = 3;
+const records = createRecords();
+const tutorial = createTutorial();
+let state = 'title';
+
+// 切り替えは必ずここを通す。その状態で許されない操作なら false
+function go(action) {
+  const next = nextState(state, action);
+  if (next === null) return false;
+  state = next;
+  pauseMenu.setButtonVisible(state === 'playing');
+  return true;
+}
+
+// 主人公・結晶獣・予告・画面・ロックオン・入力を最初に戻す
+function resetFight() {
   sound.stopAll();
-  sound.play({ name: 'click', group: 'ui' });
   soundCues.reset();
   previousResult = null;
   seed += 1;
@@ -201,7 +230,94 @@ combatHud.onRetry(() => {
   setLock(false);
   input.clear();
   stick.reset();
+  tutorialView.show(null);
+}
+
+// 戦いに入る：最初の3回は遊び方の説明を出す
+function beginFight() {
+  resetFight();
+  tutorial.start(records.countPlay() <= TUTORIAL_PLAYS);
+  autoDowngrade?.reset();
+  clickSound();
+}
+
+function showTitle() {
+  resetFight();
+  titleScreen.show(records.best());
+}
+
+function pause() {
+  if (!go('pause')) return;
+  sound.suspend();
+  clearInput();
+  pauseMenu.show({ muted: sound.muted(), quality: quality.tier });
+}
+
+// 一時停止メニューを閉じて、action（続ける・やり直す・タイトルへ）に進む
+function leavePause(action) {
+  if (!go(action)) return false;
+  pauseMenu.hide();
+  sound.resume();
+  return true;
+}
+
+titleScreen.onStart(() => {
+  if (!go('start')) return;
+  titleScreen.hide();
+  sound.unlock();
+  beginFight();
 });
+
+combatHud.onRetry(() => {
+  if (go('retry')) beginFight();
+});
+
+combatHud.onTitle(() => {
+  if (!go('title')) return;
+  clickSound();
+  showTitle();
+});
+
+pauseMenu.on('pause', pause);
+pauseMenu.on('resume', () => {
+  if (leavePause('resume')) clickSound();
+});
+pauseMenu.on('retry', () => {
+  if (leavePause('retry')) beginFight();
+});
+pauseMenu.on('title', () => {
+  if (leavePause('title')) showTitle();
+});
+pauseMenu.on('mute', toggleMute);
+pauseMenu.on('tutorial', () => {
+  tutorial.start(true);
+  if (leavePause('resume')) clickSound();
+});
+pauseMenu.on('quality', (tier) => {
+  quality.tier = tier;
+  autoDowngrade = null;
+  applyQuality(QUALITY_PRESETS[tier]);
+  pauseMenu.setQuality(tier);
+});
+
+// パソコンでは Esc で一時停止・再開
+window.addEventListener('keydown', (event) => {
+  if (event.code !== 'Escape') return;
+  if (state === 'playing') pause();
+  else if (state === 'paused' && leavePause('resume')) clickSound();
+});
+
+// アプリが裏に回ったら音を止める。戦いの途中なら一時停止にして、戻っても止めたままにする
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (state === 'playing') pause();
+    sound.suspend();
+  } else if (state !== 'paused') {
+    sound.resume();
+  }
+});
+
+titleScreen.show(records.best());
 
 function handleEvents(events, time) {
   for (const event of events) {
@@ -213,13 +329,17 @@ function handleEvents(events, time) {
       followCamera.shake(event.strength);
     } else if (event.type === 'won') {
       outcome = 'won';
+      go('finish');
       hud.setQuest(true);
-      combatHud.showResult('won', time);
+      combatHud.showResult('won', time, records.submit(time));
       setLock(false);
+      tutorialView.show(null);
     } else if (event.type === 'lost') {
       outcome = 'lost';
+      go('finish');
       combatHud.showResult('lost');
       setLock(false);
+      tutorialView.show(null);
     }
   }
 }
@@ -229,6 +349,7 @@ function stepCombat(dt, time) {
   const presses = input.takePresses();
   const control = input.read();
   const move = moveToWorld(control.moveX, control.moveZ, followCamera.yaw());
+  const moving = Math.hypot(move.x, move.z) > 0;
 
   if (!beast) {
     const frame = walkOnly.update(dt, {
@@ -236,6 +357,9 @@ function stepCombat(dt, time) {
       target: null, self: player.object.position, facing: player.object.rotation.y, lockOn: false,
     });
     player.drive(dt, frame, colliders, terrain.heightAt);
+    if (state === 'playing') {
+      tutorialView.show(tutorial.update(dt, { moving, hit: false, telegraph: false, lock: presses.has('lock') }));
+    }
     return;
   }
 
@@ -272,6 +396,15 @@ function stepCombat(dt, time) {
   for (const cue of soundCues.update(dt, previousResult, result, player.object.position)) sound.play(cue);
   previousResult = result;
 
+  if (state === 'playing') {
+    tutorialView.show(tutorial.update(dt, {
+      moving,
+      hit: result.events.some((event) => event.type === 'beastHit'),
+      telegraph: result.beast.phase === 'telegraph',
+      lock: presses.has('lock'),
+    }));
+  }
+
   // ロックオン：結晶獣を追い続け、照準を出す。離れすぎたら解除
   if (lockOn) {
     const distance = Math.hypot(BEAST_POSITION.x - player.object.position.x, BEAST_POSITION.z - player.object.position.z);
@@ -295,17 +428,25 @@ window.addEventListener('blur', clearInput);
 document.addEventListener('visibilitychange', clearInput);
 
 let lastTime = performance.now();
+let titleWait = 0;
 
 function animate(now) {
-  // 公開版では、一度開いたら通信なしでも遊べるようにする
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.register(asset('sw.js')).catch((error) => console.warn('オフライン対応を有効にできませんでした', error));
-}
-
-requestAnimationFrame(animate);
+  requestAnimationFrame(animate);
   const rawDt = (now - lastTime) / 1000;
   const dt = Math.min(rawDt, 0.05);
+  // 止めている間も時刻は進めておく（再開した瞬間に大きく進まないように）
   lastTime = now;
+
+  if (state === 'paused') return;
+  if (state === 'title') {
+    // 画像の裏で、ときどき描いておく（読み込んだ模型の準備を開始前に済ませ、始めた瞬間に引っかからないように）
+    titleWait += rawDt;
+    if (titleWait >= 1) {
+      titleWait = 0;
+      post.render();
+    }
+    return;
+  }
 
   // 計測には切り詰める前の時間を使う（切り詰めると fps が実際より高く見える）
   const lowered = autoDowngrade?.update(rawDt);
@@ -336,6 +477,8 @@ function resize() {
   followCamera.resize(window.innerWidth, window.innerHeight);
   renderer.setSize(window.innerWidth, window.innerHeight);
   post.setSize(window.innerWidth, window.innerHeight);
+  // 大きさを変えると絵が消えるので、止めている間も1回描き直す
+  post.render();
 }
 
 // iPhone の Safari は、アドレスバーの出入りで visualViewport だけが変わることがあるので両方を見る
