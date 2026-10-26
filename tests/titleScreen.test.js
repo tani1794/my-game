@@ -20,7 +20,9 @@ test('最初は隠れていて、show で出る。画像が入る', () => {
   title.show(null);
   expect(screen.hidden).toBe(false);
   expect(root.querySelector('.title-art').getAttribute('src')).toBe('/textures/title.webp');
-  expect(root.querySelector('.title-start').textContent).toBe('タップで開始');
+  const start = root.querySelector('.title-start');
+  expect(start.tagName).toBe('BUTTON');
+  expect(start.textContent).toBe('TAP TO BEGIN');
 });
 
 test('最速記録：あれば m:ss、なければ隠す', () => {
@@ -63,4 +65,40 @@ test('タイトルを出している間は、root に title-open を付ける（
   expect(root.classList.contains('title-open')).toBe(true);
   title.hide();
   expect(root.classList.contains('title-open')).toBe(false);
+});
+
+test('題字は読み込みが終わるまで出さず、reveal で現れて明滅を始める', () => {
+  const root = document.createElement('div');
+  document.body.append(root);
+  const title = createTitleScreen(root, { image: '/textures/silent-art.webp', logo: '/textures/silent-title.webp' });
+  title.show(null);
+  const screen = root.querySelector('.title-screen');
+  expect(root.querySelector('.title-logo').getAttribute('alt')).toBe('THE SILENT CROWN');
+  expect(screen.classList.contains('is-revealed')).toBe(false);
+  title.reveal();
+  expect(screen.classList.contains('is-revealed')).toBe(true);
+});
+
+test('TAP TO BEGIN を押すと1回だけ開始。Enter キーでも開始できる', () => {
+  const { root, title } = make();
+  const start = vi.fn();
+  title.onStart(start);
+  title.show(null);
+  root.querySelector('.title-start').click();
+  expect(start).toHaveBeenCalledTimes(1);
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  expect(start).toHaveBeenCalledTimes(2);
+  title.hide();
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  expect(start).toHaveBeenCalledTimes(2);
+});
+
+test('ボタンにフォーカスがあるときの Enter は、ボタンの押下（click）に任せて二重に開始しない', () => {
+  const { root, title } = make();
+  const start = vi.fn();
+  title.onStart(start);
+  title.show(null);
+  const button = root.querySelector('.title-start');
+  button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  expect(start).toHaveBeenCalledTimes(0);
 });

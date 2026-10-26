@@ -1,5 +1,5 @@
 /**
- * OBLIVION ARENA - Minimap
+ * THE SILENT CROWN - Minimap
  * Dependencies: none
  *
  * World coordinates:

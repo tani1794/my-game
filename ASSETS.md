@@ -16,5 +16,7 @@
 | 戦闘曲 D：Boss Battle #2 [Symphonic Metal]（nene） | https://opengameart.org/node/84428 | CC0（ページで確認） | `public/sounds/music-d.m4a`（前奏＋繰り返し部分を1つに。`scripts/build-music.py`） |
 | 戦闘曲 C：Heavy Battle Music（Davieplier） | https://opengameart.org/content/heavy-battle-music | CC0（ページで確認） | `public/sounds/music-c.m4a` |
 | 戦闘曲 A：Determined Pursuit（Emma_MA） | https://opengameart.org/content/determined-pursuit-epic-orchestra-loop | CC0（ページで確認） | `public/sounds/music-a.m4a` |
-| タイトル画像（4枚：静かな対峙・結晶が光る・稲妻・剣と前脚の衝突） | 作者（ユーザー）が用意したキービジュアル（2026-10-26 にチャットで受け取り。元の絵は `assets-src/packs/title/`、リポジトリ外） | 作者提供（作者の確認のもと公開） | `public/textures/title-calm.webp`・`title-glow.webp`・`title-surge.webp`（ロゴを消した絵）、`title-clash.webp`、`title-logo.webp`（calm の絵からロゴだけを色で切り出したもの） |
-| タイトルの奥行きの地図（4枚） | 上の絵から Depth Anything V2 Small（https://huggingface.co/depth-anything/Depth-Anything-V2-Small 、ONNX版 onnx-community/depth-anything-v2-small）で推定し、`scripts/build-title-slides.py` で手直し | モデルは Apache-2.0。出力の地図は自作素材の派生 | `public/textures/title-*-depth.png`（R=奥行き、G=結晶の光る場所。836×470） |
+| タイトル画像「THE SILENT CROWN」（王冠の騎士・森・霧の谷・古城、題字入り） | 作者（ユーザー）が ChatGPT で用意したキービジュアル（2026-10-26 にチャットで受け取り。元の絵は `assets-src/packs/title/silent.png`、リポジトリ外） | 作者提供（作者の確認のもと公開） | `public/textures/silent-art.webp`（題字を消した絵）、`public/textures/silent-title.webp`（元の題字を色で切り出した透過画像） |
+| 題字を消した跡の穴埋め | LaMa（big-lama、ONNX 版 https://huggingface.co/Carve/LaMa-ONNX ）を Mac 上で実行。`scripts/build-silent-title.py` | モデルは Apache-2.0。出力は自作素材の派生 | `public/textures/silent-art.webp` |
+| タイトルの奥行きの地図と、動かす場所の地図 | 奥行きは Depth Anything V2 Small（https://huggingface.co/depth-anything/Depth-Anything-V2-Small 、ONNX版 onnx-community/depth-anything-v2-small）で推定。枝葉・マント・空の範囲は `scripts/build-silent-title.py` で作成 | モデルは Apache-2.0。出力は自作素材の派生 | `public/textures/silent-depth.png`（R=奥行き）、`public/textures/silent-masks.png`（R=枝葉、G=マント、B=空） |
+| 古龍 | `src/title/dragon.js` でコードから作る立体（素材ファイルなし） | 自作 | なし |

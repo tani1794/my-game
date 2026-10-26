@@ -36,7 +36,7 @@
   pointer-events: none;
 }
 
-/* 画像は下に「タップで開始」の帯を空けて置く（低い画面でも文字がロゴに重ならないように） */
+/* 3D が使えないときの止まった絵：画面いっぱいに */
 .title-art {
   position: absolute;
   top: 0;
@@ -44,8 +44,8 @@
   z-index: 1;
   display: block;
   width: 100%;
-  height: calc(100% - 30px - env(safe-area-inset-bottom));
-  object-fit: contain;
+  height: 100%;
+  object-fit: cover;
   object-position: center;
   pointer-events: none;
   -webkit-user-drag: none;
@@ -54,22 +54,25 @@
 .title-start {
   position: absolute;
   left: 50%;
-  bottom: calc(4px + env(safe-area-inset-bottom));
-  z-index: 2;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  z-index: 3;
   transform: translateX(-50%);
-  padding: 0 18px;
-  font-size: 17px;
-  font-weight: 600;
-  line-height: 1.4;
-  letter-spacing: 0.16em;
+  padding: 6px 14px 6px calc(14px + 0.38em);
+  border: 0;
+  background: none;
+  color: #c8ccd2;
+  font: 300 13px/1.2 'Helvetica Neue', system-ui, -apple-system, sans-serif;
+  letter-spacing: 0.38em;
   white-space: nowrap;
-  color: #e8e2d0;
-  text-shadow:
-    0 2px 3px #000,
-    0 0 7px #000,
-    0 0 14px #07131d;
-  pointer-events: none;
-  animation: title-start-pulse 2.4s ease-in-out infinite;
+  text-shadow: 0 1px 3px #000, 0 0 10px #000c;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.title-start:focus-visible {
+  outline: 1px solid #c8ccd2aa;
+  outline-offset: 2px;
 }
 
 .title-best {
@@ -106,29 +109,10 @@
   letter-spacing: 0.08em;
 }
 
-@keyframes title-start-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.35;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .title-start {
-    animation: none;
-    opacity: 1;
-  }
-}
-
 @media (max-height: 430px) {
   .title-start {
-    bottom: calc(5px + env(safe-area-inset-bottom));
-    padding: 0 14px;
-    font-size: 14px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    font-size: 11px;
   }
 
   .title-best {
@@ -149,9 +133,9 @@
   visibility: hidden;
 }
 
-/* 3D表示：止まった絵の代わりに裏の canvas を見せ、下を暗くしてロゴを読みやすく */
+/* 3D表示：止まった絵の代わりに裏の canvas を見せ、下をわずかに暗くして題字と案内を読みやすく */
 .title-screen.is-3d {
-  background: linear-gradient(to top, #050a10e6 0%, #050a1080 22%, transparent 42%);
+  background: linear-gradient(to top, #05080bb3 0%, #05080b40 18%, transparent 34%);
 }
 
 .title-screen.is-3d .title-blur,
@@ -159,21 +143,47 @@
   display: none;
 }
 
+/* 題字：元の絵と同じく下中央。背景の準備ができるまでは隠しておく */
 .title-logo {
   position: absolute;
   left: 50%;
-  bottom: calc(30px + env(safe-area-inset-bottom));
+  bottom: calc(40px + env(safe-area-inset-bottom));
   z-index: 2;
-  width: min(64vw, 620px);
+  width: min(52vw, 95vh, 680px);
   transform: translateX(-50%);
-  filter: drop-shadow(0 3px 6px #000c);
+  opacity: 0;
+  filter: drop-shadow(0 2px 6px #000b);
   pointer-events: none;
   -webkit-user-drag: none;
 }
 
+/* 約2秒で現れ、そのあとは 1秒で消えて 1秒で戻る（2秒周期の静かな明滅） */
+.title-screen.is-revealed .title-logo {
+  animation:
+    title-reveal 2s ease-out forwards,
+    title-breathe 2s ease-in-out 2s infinite;
+}
+
+@keyframes title-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes title-breathe {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+/* 動きを減らす設定では明滅しない（現れたまま） */
+@media (prefers-reduced-motion: reduce) {
+  .title-screen.is-revealed .title-logo {
+    animation: title-reveal 2s ease-out forwards;
+  }
+}
+
 @media (max-height: 430px) {
   .title-logo {
-    width: min(60vw, 520px);
-    bottom: calc(26px + env(safe-area-inset-bottom));
+    bottom: calc(30px + env(safe-area-inset-bottom));
   }
 }

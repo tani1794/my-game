@@ -24,7 +24,7 @@ import { createStick } from './ui/stick.js';
 import { createHud } from './ui/hud.js';
 import { createMinimap } from './ui/minimap.js';
 import { createTitleScreen } from './ui/titleScreen.js';
-import { createTitleScene, TITLE_PICTURES } from './ui/titleScene.js';
+import { createSilentScene } from './title/silentScene.js';
 import { createPauseMenu } from './ui/pauseMenu.js';
 import { createTutorial, createTutorialView } from './ui/tutorial.js';
 import { nextState } from './game/flow.js';
@@ -43,41 +43,63 @@ const minimap = createMinimap(hud.minimapCanvas);
 const tutorialView = createTutorialView(app);
 const pauseMenu = createPauseMenu(app);
 const titleScreen = createTitleScreen(app, {
-  image: asset('textures/title-calm.webp'),
-  logo: asset('textures/title-logo.webp'),
+  image: asset('textures/silent-art.webp'),
+  logo: asset('textures/silent-title.webp'),
 });
 
 // ── 3Dの基本設定 ──
 const canvas = document.querySelector('#game');
-const renderer = new THREE.WebGLRenderer({
-  canvas,
-  antialias: true,
-});
+// WebGL が使えない端末では、止まったタイトル画面だけを出し、開始できない理由を伝えて止める
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: true,
+  });
+} catch (error) {
+  titleScreen.show(null);
+  titleScreen.reveal();
+  titleScreen.onStart(() => hud.showNotice('この端末では3Dを表示できないため、遊べません'));
+  throw error;
+}
 
 renderer.setSize(window.innerWidth, window.innerHeight);
 
 const scene = new THREE.Scene();
 
-// ── タイトルの3D写真のスライド：4枚の絵と奥行きの地図がすべて読めたら、止まった絵の代わりに使う ──
+// ── タイトル「THE SILENT CROWN」：絵・奥行きの地図・動かす場所の地図が読めたら、2.5D の背景を使う ──
 let titleScene = null;
 let titleTime = 0;
 const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
 const titleLoader = new THREE.TextureLoader();
-Promise.all(TITLE_PICTURES.map(async (name) => {
-  const [image, depth] = await Promise.all([
-    titleLoader.loadAsync(asset(`textures/title-${name}.webp`)),
-    titleLoader.loadAsync(asset(`textures/title-${name}-depth.png`)),
-  ]);
-  image.colorSpace = THREE.SRGBColorSpace;
-  return [name, { image, depth }];
-})).then((loaded) => {
-  titleScene = createTitleScene({ pictures: Object.fromEntries(loaded) });
-  titleScene.setReducedMotion(Boolean(reducedMotion?.matches));
-  reducedMotion?.addEventListener?.('change', (event) => titleScene.setReducedMotion(event.matches));
-  titleScreen.setDepthMode(true);
-  // ?debug のときだけ、場面の時刻を外から合わせられるようにする（画面の確認用）
-  if (quality.debug) window.__titleTime = (seconds) => { titleTime = seconds; };
-}).catch((error) => console.warn('タイトルの3D表示を準備できませんでした。止まった絵で続けます', error));
+Promise.all(['silent-art.webp', 'silent-depth.png', 'silent-masks.png']
+  .map((file) => titleLoader.loadAsync(asset(`textures/${file}`))))
+  .then(([art, depth, masks]) => {
+    art.colorSpace = THREE.SRGBColorSpace;
+    // スマートフォン（指で操作する端末）では、霧の模様と埃を減らす
+    const lite = Boolean(window.matchMedia?.('(pointer: coarse)').matches);
+    titleScene = createSilentScene({ art, depth, masks, lite });
+    titleScene.setReducedMotion(Boolean(reducedMotion?.matches));
+    reducedMotion?.addEventListener?.('change', (event) => titleScene.setReducedMotion(event.matches));
+    titleScreen.setDepthMode(true);
+    // 背景を描き始めてから、題字を出す
+    requestAnimationFrame(() => titleScreen.reveal());
+    // ?debug のときだけ、時刻を外から合わせられるようにする（画面の確認用）
+    if (quality.debug) {
+      window.__titleTime = (seconds) => { titleTime = seconds; };
+      // 古龍の画面上の位置（CSSピクセル）
+      window.__titleDragon = () => {
+        const { x, y } = titleScene.dragon.position;
+        const aspect = window.innerWidth / window.innerHeight;
+        return { x: ((x / aspect + 1) / 2) * window.innerWidth, y: ((1 - y) / 2) * window.innerHeight };
+      };
+    }
+  })
+  .catch((error) => {
+    // 読めないときは止まった絵のまま、題字と開始ボタンを出す
+    console.warn('タイトルの背景を準備できませんでした。止まった絵で続けます', error);
+    titleScreen.reveal();
+  });
 const lighting = createLighting(scene, renderer);
 const terrain = createTerrain(scene);
 const ruins = createRuins(scene, terrain.heightAt);
@@ -465,7 +487,7 @@ let warmedUp = false;
 
 function renderTitle() {
   titleScene.update(titleTime, window.innerWidth, window.innerHeight, renderer.getPixelRatio());
-  renderer.render(titleScene.scene, titleScene.camera);
+  titleScene.render(renderer);
 }
 
 // 結晶獣と木々が読めたら、戦いの絵を1回だけ実際に描いて準備を済ませる（始めた瞬間に引っかからないように）。

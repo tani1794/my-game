@@ -1,5 +1,5 @@
 /**
- * OBLIVION ARENA - Virtual Analog Stick
+ * THE SILENT CROWN - Virtual Analog Stick
  * Dependencies: none
  */
 

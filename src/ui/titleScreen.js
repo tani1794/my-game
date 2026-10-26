@@ -26,17 +26,18 @@ export function createTitleScreen(root, { image, logo = null }) {
   art.setAttribute('alt', '');
   art.setAttribute('draggable', 'false');
 
-  // ロゴは絵から切り出したもの。絵が動いても、いつも下中央に重ねて出す
+  // 題字は絵から切り出したもの。背景が動いても、いつも下中央に重ねて出す（reveal で現れて、ゆっくり明滅する）
   const logoImage = document.createElement('img');
   logoImage.className = 'title-logo';
-  logoImage.setAttribute('alt', 'OBLIVION ARENA');
+  logoImage.setAttribute('alt', 'THE SILENT CROWN');
   logoImage.setAttribute('draggable', 'false');
   logoImage.hidden = logo === null;
   if (logo !== null) logoImage.setAttribute('src', logo);
 
-  const start = document.createElement('div');
+  const start = document.createElement('button');
+  start.type = 'button';
   start.className = 'title-start';
-  start.textContent = 'タップで開始';
+  start.textContent = 'TAP TO BEGIN';
 
   const best = document.createElement('div');
   best.className = 'title-best';
@@ -53,12 +54,22 @@ export function createTitleScreen(root, { image, logo = null }) {
   screen.append(blur, art, logoImage, start, best);
   root.append(screen);
 
-  screen.addEventListener('click', () => {
-    if (screen.hidden) return;
-
+  function begin() {
     for (const callback of [...callbacks]) {
       callback();
     }
+  }
+
+  // 画面のどこをタップしても始まる（TAP TO BEGIN のボタンもここに届く）
+  screen.addEventListener('click', () => {
+    if (!screen.hidden) begin();
+  });
+
+  // Enter キーでも始める。ボタンにフォーカスがあるときは、ブラウザがボタンを押す（click）ので二重にしない
+  window.addEventListener('keydown', (event) => {
+    if (screen.hidden || event.key !== 'Enter' || event.target === start) return;
+    event.preventDefault();
+    begin();
   });
 
   return {
@@ -81,6 +92,11 @@ export function createTitleScreen(root, { image, logo = null }) {
     hide() {
       screen.hidden = true;
       root.classList.remove('title-open');
+    },
+
+    // 背景の準備ができたら呼ぶ：題字が約2秒で現れ、そのあと2秒周期でゆっくり消えては戻る
+    reveal() {
+      screen.classList.add('is-revealed');
     },
 
     // 3D表示（裏の canvas に描く）のときは、止まった絵を隠して透かす
