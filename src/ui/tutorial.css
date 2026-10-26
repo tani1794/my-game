@@ -1,0 +1,131 @@
+.tutorial-hint {
+  position: fixed;
+  z-index: 15;
+  width: max-content;
+  max-width: calc(
+    100vw - 32px - env(safe-area-inset-left) - env(safe-area-inset-right)
+  );
+  padding: 8px 14px;
+  pointer-events: none;
+  color: #e8e2d0;
+  background: #1b2530cc;
+  border: 1px solid #c9a96a;
+  clip-path: polygon(
+    8px 0,
+    calc(100% - 8px) 0,
+    100% 50%,
+    calc(100% - 8px) 100%,
+    8px 100%,
+    0 50%
+  );
+  filter: drop-shadow(0 2px 5px #0009);
+  font-family: system-ui, -apple-system, 'Hiragino Sans', sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: center;
+  text-shadow: 0 1px 2px #000;
+  overflow-wrap: anywhere;
+  will-change: opacity;
+}
+
+.tutorial-hint[hidden] {
+  display: none;
+}
+
+.tutorial-hint.is-entering {
+  animation: tutorial-hint-in 200ms ease-out both;
+}
+
+/* スティックの上 */
+.tutorial-hint[data-hint='move'] {
+  left: calc(
+    var(--edge, 16px) +
+    12px +
+    env(safe-area-inset-left) +
+    var(--stick, 150px) / 2
+  );
+  bottom: calc(
+    var(--edge, 16px) +
+    env(safe-area-inset-bottom) +
+    var(--stick, 150px) +
+    10px
+  );
+  transform: translateX(-50%);
+}
+
+/* 攻撃ボタンの左 */
+.tutorial-hint[data-hint='attack'] {
+  right: calc(
+    var(--edge, 16px) +
+    env(safe-area-inset-right) +
+    var(--sub-button, 84px) +
+    14px +
+    var(--attack, 110px) +
+    12px
+  );
+  bottom: calc(
+    var(--edge, 16px) +
+    env(safe-area-inset-bottom) +
+    18px +
+    var(--attack, 110px) / 2
+  );
+  transform: translateY(50%);
+}
+
+/* 画面中央の少し上 */
+.tutorial-hint[data-hint='dodge'] {
+  top: 28%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-color: #ff9a3c;
+  font-size: 16px;
+  font-weight: 600;
+  filter:
+    drop-shadow(0 2px 5px #0009)
+    drop-shadow(0 0 5px #ff9a3c66);
+}
+
+/* ロックボタンの左 */
+.tutorial-hint[data-hint='lock'] {
+  right: calc(
+    var(--edge, 16px) +
+    env(safe-area-inset-right) +
+    var(--sub-button, 84px) +
+    12px
+  );
+  bottom: calc(
+    var(--edge, 16px) +
+    env(safe-area-inset-bottom) +
+    var(--sub-button, 84px) +
+    14px +
+    var(--sub-button, 84px) / 2
+  );
+  transform: translateY(50%);
+}
+
+@keyframes tutorial-hint-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (max-height: 430px) {
+  .tutorial-hint {
+    padding: 6px 11px;
+    font-size: 12px;
+  }
+
+  .tutorial-hint[data-hint='dodge'] {
+    font-size: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-hint.is-entering {
+    animation-duration: 1ms;
+  }
+}
