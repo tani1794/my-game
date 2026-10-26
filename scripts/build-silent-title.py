@@ -1,9 +1,10 @@
 # タイトル画面「THE SILENT CROWN」の素材を作る。
-#   - 焼き込まれた題字を消し、地面を穴埋めAI（LaMa）で埋めた絵   public/textures/silent-art.webp
+#   - 焼き込まれた題字を消し、地面を穴埋めAI（LaMa）で埋め、鎖につながれたドラゴンを城の左手前に置いた絵
+#                                                               public/textures/silent-art.webp
 #   - 元の意匠のまま切り出した透過の題字                         public/textures/silent-title.webp
 #   - 奥行きの地図（R=奥行き）                                   public/textures/silent-depth.png
 #   - 動かす場所の地図（R=枝葉、G=マント、B=空）                 public/textures/silent-masks.png
-# 使い方: python build-silent-title.py <元の絵.png> <Depth Anything V2 Small の model.onnx> <LaMa の lama_fp32.onnx> <確認用の出力フォルダ>
+# 使い方: python build-silent-title.py <元の絵.png> <ドラゴンの参考の絵.png> <Depth Anything V2 Small の model.onnx> <LaMa の lama_fp32.onnx> <確認用の出力フォルダ>
 # 必要: onnxruntime, numpy, scipy, pillow（ゲーム本体には入れない。作業用の環境で）
 import sys
 import numpy as np
@@ -11,7 +12,7 @@ import onnxruntime as ort
 from PIL import Image
 from scipy import ndimage as nd
 
-SOURCE, DEPTH_MODEL, LAMA_MODEL, PREVIEW = sys.argv[1:5]
+SOURCE, DRAGON, DEPTH_MODEL, LAMA_MODEL, PREVIEW = sys.argv[1:6]
 OUT = 'public/textures'
 
 im = np.asarray(Image.open(SOURCE).convert('RGB'), dtype=np.float32) / 255
@@ -64,7 +65,46 @@ for cx0 in [380, 780]:
         out = out / 255
     soft = nd.gaussian_filter(m, 1.5)[..., None]
     art[cy0:cy0 + 512, cx0:cx0 + 512] = crop * (1 - soft) + np.clip(out, 0, 1) * soft
+# ── 鎖につながれたドラゴン：参考の絵（霧の中の暗い影）から切り出し、城の左手前の岩山に止まらせる（動かさない） ──
+# 霧（明るい背景）との明るさの差から透明度を求め、本体のまわりだけ残す。岩の根元は霧に溶かす
+ref = np.asarray(Image.open(DRAGON).convert('RGB'), dtype=np.float32) / 255
+RH, RW, _ = ref.shape
+ref_lum = ref @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
+fog_lum = nd.gaussian_filter(nd.maximum_filter(ref_lum, 45), 18)
+matte = np.clip((fog_lum - ref_lum - 0.05) / np.maximum(fog_lum - 0.12, 0.05), 0, 1)
+matte[:, 395:] = 0  # 右の城の影は使わない
+lab, n = nd.label(matte > 0.45)
+largest = 1 + np.argmax(nd.sum(np.ones_like(lab), lab, range(1, n + 1)))
+body = nd.gaussian_filter(nd.binary_dilation(lab == largest, iterations=8).astype(np.float32), 3)
+matte = np.clip((matte * np.clip(body * 1.5, 0, 1) - 0.12) / 0.8, 0, 1)
+rows = np.arange(RH, dtype=np.float32)[:, None]
+matte *= np.clip((520 - rows) / 80, 0, 1)
+# 霧の色を引いて、ドラゴンそのものの色を取り出す（縁に霧の色が残らないように）
+fog = np.stack([nd.gaussian_filter(nd.maximum_filter(ref[..., c], 45), 18) for c in range(3)], -1)
+color = np.clip((ref - (1 - matte[..., None]) * fog) / np.maximum(matte[..., None], 0.3), 0, 1)
+# この絵の色に合わせる：色味を抜き、わずかに青灰色へ
+gray = color @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
+color = np.clip((color * 0.25 + gray[..., None] * 0.75) * np.array([0.92, 0.96, 1.02]) * 0.85, 0, 1)
+
+SCALE = 0.48
+ROCK_X, ROCK_Y = 915, 318     # 岩の頂（ドラゴンの足もと）を置く場所
+REF_ROCK_X, REF_ROCK_Y = 180, 385
+size = (round(RW * SCALE), round(RH * SCALE))
+premult = Image.fromarray((np.dstack([color * matte[..., None], matte]) * 255).astype(np.uint8)).resize(size, Image.LANCZOS)
+premult = np.asarray(premult, dtype=np.float32) / 255
+x0 = ROCK_X - round(REF_ROCK_X * SCALE)
+y0 = ROCK_Y - round(REF_ROCK_Y * SCALE)
+region = art[y0:y0 + size[1], x0:x0 + size[0]]
+a = premult[..., 3:4]
+dragon_color = premult[..., :3] / np.maximum(a, 1e-4)
+# 遠くにいるので、まわりの霧の色を少し混ぜる（空気遠近法）
+haze = nd.gaussian_filter(region, (12, 12, 0))
+dragon_color = dragon_color * 0.8 + haze * 0.2
+art[y0:y0 + size[1], x0:x0 + size[0]] = region * (1 - a) + dragon_color * a
+print('dragon box', x0, y0, x0 + size[0], y0 + size[1])
+
 Image.fromarray((art * 255).astype(np.uint8)).save(f'{OUT}/silent-art.webp', 'WEBP', quality=84, method=6)
+Image.fromarray((art * 255).astype(np.uint8)).crop((700, 60, 1200, 460)).save(f'{PREVIEW}/silent-dragon-site.png')
 Image.fromarray((art * 255).astype(np.uint8)).crop((380, 600, 1300, 900)).save(f'{PREVIEW}/silent-art-title-area.png')
 
 # ── 奥行き：Depth Anything V2（近いほど大きい）。題字の場所は消したあとの絵で推定し直す ──

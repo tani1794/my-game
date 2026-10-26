@@ -1,13 +1,12 @@
 // タイトル画面「THE SILENT CROWN」の背景（2.5D）。
 // 1枚の絵と奥行きの地図から、遠景（空・城・谷）と近景（人物・木・地面）を視差でずらして立体的に見せる。
 // 絵の上で、枝葉とマントだけを小さく揺らし、空の雲・光の柱・谷の霧・地表の霧をコードで描き足す。
-// その上に、立体の古龍（城の奥の空）と、光の中を漂う埃を重ねる。
+// 城の左手前の岩山に止まる鎖のドラゴンは、絵に描き込んである（動かさない）。その上に、光の中を漂う埃を重ねる。
 import * as THREE from 'three';
 import { mulberry32 } from '../world/random.js';
 import { cameraAt, IMAGE_ASPECT, PARALLAX } from './framing.js';
-import { createDragon } from './dragon.js';
 
-// 動きを減らす設定のときに止めておく時刻（古龍が城の右上の空にいる所）
+// 動きを減らす設定のときに止めておく時刻
 const STILL_TIME = 8;
 
 const PICTURE_VERTEX = `
@@ -232,11 +231,9 @@ export function createSilentScene({ art, depth, masks, lite = false }) {
 
   const overlayScene = new THREE.Scene();
   const overlayCamera = new THREE.OrthographicCamera(-2, 2, 1, -1, -20, 20);
-  const dragon = createDragon({ masks, depth });
   const dust = createDust(lite ? 36 : 70);
-  overlayScene.add(dragon.group, dust.points);
+  overlayScene.add(dust.points);
 
-  const resolution = new THREE.Vector2(1, 1);
   let reducedMotion = false;
   let screenAspect = 2;
   let pixelRatio = 1;
@@ -255,18 +252,6 @@ export function createSilentScene({ art, depth, masks, lite = false }) {
     overlayCamera.right = screenAspect;
     overlayCamera.updateProjectionMatrix();
 
-    // 古龍は空と同じ「いちばん奥」の層なので、空と同じだけ視差でずらす
-    const skyShiftX = (camera.lookX * PARALLAX * -0.5) / camera.zoom;
-    const skyShiftY = (camera.lookY * PARALLAX * -0.5) / camera.zoom;
-    const skyView = { x: camera.x + skyShiftX, y: camera.y - skyShiftY, zoom: camera.zoom };
-    dragon.update(time, {
-      view: skyView,
-      maskView: { x: camera.x, y: camera.y, zoom: camera.zoom },
-      look: { x: camera.lookX, y: camera.lookY },
-      screenAspect,
-      imageAspect: IMAGE_ASPECT,
-      resolution,
-    });
     dust.points.material.uniforms.pointScale.value = (height / 390) * pixelRatio;
     dust.update(time, screenAspect);
   }
@@ -275,14 +260,11 @@ export function createSilentScene({ art, depth, masks, lite = false }) {
   function update(time, width, height, ratio = 1) {
     lastTime = Number.isFinite(time) && time >= 0 ? time : 0;
     pixelRatio = ratio;
-    resolution.set(Math.max(1, Math.round(width * ratio)), Math.max(1, Math.round(height * ratio)));
     apply(reducedMotion ? STILL_TIME : lastTime, Math.max(1, width), Math.max(1, height));
   }
 
-  // 背景の絵を描き、その上に古龍と埃を重ねる（UIは HTML なので、ここでは描かない）
+  // 背景の絵を描き、その上に埃を重ねる（UIは HTML なので、ここでは描かない）
   function render(renderer) {
-    renderer.getDrawingBufferSize(resolution);
-    dragon.material.uniforms.resolution.value.copy(resolution);
     renderer.render(pictureScene, pictureCamera);
     const autoClear = renderer.autoClear;
     renderer.autoClear = false;
@@ -298,12 +280,11 @@ export function createSilentScene({ art, depth, masks, lite = false }) {
   function dispose() {
     picture.geometry.dispose();
     picture.material.dispose();
-    dragon.dispose();
     dust.dispose();
   }
 
   return {
-    pictureScene, overlayScene, dragon: dragon.group, dust: dust.points,
+    pictureScene, overlayScene, dust: dust.points,
     update, render, setReducedMotion, dispose,
     time: () => lastTime,
   };

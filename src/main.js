@@ -85,15 +85,7 @@ Promise.all(['silent-art.webp', 'silent-depth.png', 'silent-masks.png']
     // 背景を描き始めてから、題字を出す
     requestAnimationFrame(() => titleScreen.reveal());
     // ?debug のときだけ、時刻を外から合わせられるようにする（画面の確認用）
-    if (quality.debug) {
-      window.__titleTime = (seconds) => { titleTime = seconds; };
-      // 古龍の画面上の位置（CSSピクセル）
-      window.__titleDragon = () => {
-        const { x, y } = titleScene.dragon.position;
-        const aspect = window.innerWidth / window.innerHeight;
-        return { x: ((x / aspect + 1) / 2) * window.innerWidth, y: ((1 - y) / 2) * window.innerHeight };
-      };
-    }
+    if (quality.debug) window.__titleTime = (seconds) => { titleTime = seconds; };
   })
   .catch((error) => {
     // 読めないときは止まった絵のまま、題字と開始ボタンを出す
