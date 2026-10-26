@@ -59,7 +59,7 @@ try {
 } catch (error) {
   titleScreen.show(null);
   titleScreen.reveal();
-  titleScreen.onStart(() => hud.showNotice('この端末では3Dを表示できないため、遊べません'));
+  titleScreen.onStart(() => titleScreen.showNotice('この端末では3Dを表示できないため、遊べません'));
   throw error;
 }
 

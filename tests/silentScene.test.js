@@ -68,3 +68,17 @@ test('描画：背景を描いてから、奥行きだけ消して古龍と埃�
   expect(renderer.autoClear).toBe(true);
   title.dispose();
 });
+
+test('古龍の隠れ方は、背景と同じ奥行きの地図と視差の向きで計算する', () => {
+  const depth = new THREE.Texture();
+  const title = createSilentScene({ art: new THREE.Texture(), depth, masks: new THREE.Texture() });
+  title.update(17, 844, 390);
+  const pictureUniforms = title.pictureScene.children[0].material.uniforms;
+  const dragonMesh = title.dragon.getObjectByName('dragon-body');
+  const dragonUniforms = dragonMesh.material.uniforms;
+  expect(dragonUniforms.depthMap.value).toBe(depth);
+  expect(dragonUniforms.look.value.toArray()).toEqual(pictureUniforms.look.value.toArray());
+  // 古龍の絵の置き方は、空と同じではなく、背景と同じカメラ（ずらしは視差の計算で行う）
+  expect(dragonUniforms.view.value.toArray()).toEqual(pictureUniforms.view.value.toArray());
+  title.dispose();
+});

@@ -51,7 +51,12 @@ export function createTitleScreen(root, { image, logo = null }) {
   bestTime.className = 'title-best-time';
 
   best.append(bestLabel, ' ', bestTime);
-  screen.append(blur, art, logoImage, start, best);
+
+  const notice = document.createElement('div');
+  notice.className = 'title-notice';
+  notice.hidden = true;
+
+  screen.append(blur, art, logoImage, start, best, notice);
   root.append(screen);
 
   function begin() {
@@ -102,6 +107,12 @@ export function createTitleScreen(root, { image, logo = null }) {
     // 3D表示（裏の canvas に描く）のときは、止まった絵を隠して透かす
     setDepthMode(on) {
       screen.classList.toggle('is-3d', Boolean(on));
+    },
+
+    // 開始できない理由などを、タイトル画面の中に出す
+    showNotice(message) {
+      notice.textContent = message;
+      notice.hidden = false;
     },
 
     onStart(callback) {

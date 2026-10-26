@@ -4,7 +4,7 @@
 // 城や山の向こうに隠れるよう、空の場所（masks の B）だけに描く。
 import * as THREE from 'three';
 import { flapAt, flightAt, wingspanFraction } from './dragonFlight.js';
-import { imageToScreen } from './framing.js';
+import { imageToScreen, PARALLAX } from './framing.js';
 
 const TAU = Math.PI * 2;
 const RING_SIDES = 8;
@@ -97,10 +97,12 @@ export function placeDragon(flight, view, screenAspect, imageAspect) {
   };
 }
 
-function createMaterial(masks) {
+function createMaterial(masks, depth) {
   return new THREE.ShaderMaterial({
     uniforms: {
       masks: { value: masks },
+      depthMap: { value: depth },
+      look: { value: new THREE.Vector2() },
       resolution: { value: new THREE.Vector2(1, 1) },
       view: { value: new THREE.Vector3(0.5, 0.5, 1) },
       screenAspect: { value: 2 },
@@ -121,6 +123,8 @@ function createMaterial(masks) {
     `,
     fragmentShader: `
       uniform sampler2D masks;
+      uniform sampler2D depthMap;
+      uniform vec2 look;
       uniform vec2 resolution;
       uniform vec3 view;
       uniform float screenAspect;
@@ -130,16 +134,23 @@ function createMaterial(masks) {
       uniform float haze;
       varying vec3 vNormal;
       varying vec3 vColor;
+      const float PARALLAX = ${PARALLAX.toFixed(4)};
 
       void main() {
-        // 画面のこの場所に写っている絵の点を求め、空でなければ（城・山・木の向こうなら）描かない
+        // 画面のこの場所に写っている絵の点を、背景と同じ視差の計算で求め、空でなければ（城・山・木の向こうなら）描かない
         vec2 screenUv = gl_FragCoord.xy / resolution;
         vec2 size = screenAspect > imageAspect
           ? vec2(1.0, imageAspect / screenAspect)
           : vec2(screenAspect / imageAspect, 1.0);
         size /= view.z;
         vec2 imagePoint = vec2(view.x + (screenUv.x - 0.5) * size.x, view.y - (screenUv.y - 0.5) * size.y);
-        float sky = texture2D(masks, vec2(imagePoint.x, 1.0 - imagePoint.y)).b;
+        vec2 base = vec2(imagePoint.x, 1.0 - imagePoint.y);
+        vec2 sampleUv = base;
+        for (int i = 0; i < 6; i++) {
+          float d = texture2D(depthMap, sampleUv).r;
+          sampleUv = mix(sampleUv, base + look * PARALLAX * (d - 0.5) / view.z, 0.65);
+        }
+        float sky = texture2D(masks, clamp(sampleUv, vec2(0.0), vec2(1.0))).b;
         if (sky < 0.02) discard;
 
         vec3 normal = normalize(vNormal) * (gl_FrontFacing ? 1.0 : -1.0);
@@ -321,8 +332,8 @@ function updateWing(wing, joints) {
   membrane.geometry.computeBoundingSphere();
 }
 
-export function createDragon({ masks }) {
-  const material = createMaterial(masks);
+export function createDragon({ masks, depth = null }) {
+  const material = createMaterial(masks, depth);
   // root：画面での位置と大きさ / tilt：下から見上げる角度 / yaw：進む向き / bank：旋回の傾き
   const root = new THREE.Group();
   root.name = 'dragon';
@@ -356,8 +367,12 @@ export function createDragon({ masks }) {
     updateWing(wings.left, wingJoints(-1, pose.shoulder, pose.elbow, pose.wrist));
   }
 
-  // time 秒の飛び方に合わせる。view などは絵の置き方（遠くの層として視差でずらしたもの）
-  function update(time, { view = { x: 0.5, y: 0.5, zoom: 1 }, screenAspect = 2, imageAspect = 1672 / 941, resolution = null } = {}) {
+  // time 秒の飛び方に合わせる。view は古龍を置く絵の置き方（空と同じだけ視差でずらしたもの）、
+  // maskView と look は背景のカメラ（隠れ方を背景と同じ視差の計算で求める）
+  function update(time, {
+    view = { x: 0.5, y: 0.5, zoom: 1 }, maskView = view, look = { x: 0, y: 0 },
+    screenAspect = 2, imageAspect = 1672 / 941, resolution = null,
+  } = {}) {
     const flight = flightAt(time);
     const placed = placeDragon(flight, view, screenAspect, imageAspect);
     root.position.set(placed.x, placed.y, 0);
@@ -367,7 +382,8 @@ export function createDragon({ masks }) {
     setPose(dragonPose(time));
 
     const { uniforms } = material;
-    uniforms.view.value.set(view.x, view.y, view.zoom);
+    uniforms.view.value.set(maskView.x, maskView.y, maskView.zoom);
+    uniforms.look.value.set(look.x, look.y);
     uniforms.screenAspect.value = screenAspect;
     uniforms.imageAspect.value = imageAspect;
     // 奥へ行くほど霞む（空気遠近法）

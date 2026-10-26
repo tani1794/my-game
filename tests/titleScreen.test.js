@@ -102,3 +102,12 @@ test('ボタンにフォーカスがあるときの Enter は、ボタンの押�
   button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   expect(start).toHaveBeenCalledTimes(0);
 });
+
+test('お知らせはタイトル画面の中に出す（タイトル中もほかの画面は隠れているため）', () => {
+  const { root, title } = make();
+  title.show(null);
+  title.showNotice('この端末では遊べません');
+  const notice = root.querySelector('.title-screen .title-notice');
+  expect(notice.textContent).toBe('この端末では遊べません');
+  expect(notice.hidden).toBe(false);
+});

@@ -5,6 +5,8 @@ export const IMAGE_ASPECT = 1672 / 941;
 export const BASE_ZOOM = 1.06;
 // カメラの揺れの周期（秒）。周期の違う波を重ね、同じ動きの繰り返しに見せない
 export const CAMERA_PERIODS = [37, 53, 61];
+// 視差の強さ（奥行き 0 と 1 のずれの差。絵の幅に対する割合）
+export const PARALLAX = 0.016;
 
 // 画面に見えている絵の範囲（絵の幅・高さに対する割合）。画面を覆う大きさで、zoom 倍に寄る
 export function visibleSize(screenAspect, imageAspect, zoom) {

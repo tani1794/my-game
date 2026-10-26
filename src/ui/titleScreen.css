@@ -20,6 +20,7 @@
 
 .title-screen[hidden],
 .title-best[hidden],
+.title-notice[hidden],
 .title-logo[hidden] {
   display: none !important;
 }
@@ -147,7 +148,7 @@
 .title-logo {
   position: absolute;
   left: 50%;
-  bottom: calc(40px + env(safe-area-inset-bottom));
+  bottom: calc(48px + env(safe-area-inset-bottom));
   z-index: 2;
   width: min(52vw, 95vh, 680px);
   transform: translateX(-50%);
@@ -184,6 +185,22 @@
 
 @media (max-height: 430px) {
   .title-logo {
-    bottom: calc(30px + env(safe-area-inset-bottom));
+    bottom: calc(38px + env(safe-area-inset-bottom));
   }
+}
+
+.title-notice {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 4;
+  max-width: min(80vw, 420px);
+  padding: 14px 22px;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #e8e2d0;
+  background: #07131def;
+  border: 1px solid #c8ccd255;
 }

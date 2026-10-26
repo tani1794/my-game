@@ -4,11 +4,9 @@
 // その上に、立体の古龍（城の奥の空）と、光の中を漂う埃を重ねる。
 import * as THREE from 'three';
 import { mulberry32 } from '../world/random.js';
-import { cameraAt, IMAGE_ASPECT } from './framing.js';
+import { cameraAt, IMAGE_ASPECT, PARALLAX } from './framing.js';
 import { createDragon } from './dragon.js';
 
-// 視差の強さ（奥行き 0 と 1 のずれの差。絵の幅に対する割合）
-export const PARALLAX = 0.016;
 // 動きを減らす設定のときに止めておく時刻（古龍が城の右上の空にいる所）
 const STILL_TIME = 8;
 
@@ -234,7 +232,7 @@ export function createSilentScene({ art, depth, masks, lite = false }) {
 
   const overlayScene = new THREE.Scene();
   const overlayCamera = new THREE.OrthographicCamera(-2, 2, 1, -1, -20, 20);
-  const dragon = createDragon({ masks });
+  const dragon = createDragon({ masks, depth });
   const dust = createDust(lite ? 36 : 70);
   overlayScene.add(dragon.group, dust.points);
 
@@ -261,7 +259,14 @@ export function createSilentScene({ art, depth, masks, lite = false }) {
     const skyShiftX = (camera.lookX * PARALLAX * -0.5) / camera.zoom;
     const skyShiftY = (camera.lookY * PARALLAX * -0.5) / camera.zoom;
     const skyView = { x: camera.x + skyShiftX, y: camera.y - skyShiftY, zoom: camera.zoom };
-    dragon.update(time, { view: skyView, screenAspect, imageAspect: IMAGE_ASPECT, resolution });
+    dragon.update(time, {
+      view: skyView,
+      maskView: { x: camera.x, y: camera.y, zoom: camera.zoom },
+      look: { x: camera.lookX, y: camera.lookY },
+      screenAspect,
+      imageAspect: IMAGE_ASPECT,
+      resolution,
+    });
     dust.points.material.uniforms.pointScale.value = (height / 390) * pixelRatio;
     dust.update(time, screenAspect);
   }
