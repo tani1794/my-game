@@ -1,18 +1,18 @@
-// 第一章の進行役（three.js も DOM も使わない）。
-// 場所に入った・調べた・敵に気づかれた・敵を倒した、という知らせを受けて、台本（script.js）の場面を流す。
+// 物語の進行役（three.js も DOM も使わない）。
+// 場所に入った・調べた・敵に気づかれた・敵を倒した、という知らせを受けて、台本の場面を流す。
 // 場面の結果（印・段階・復帰地点）は progress に保存し、字幕・目的・描画への合図を返す。
+// エリアごとの決まり（台本・目的・調べられる物・知らせへの反応）は rules で渡す。省くと第一章の決まり。
 import { SCENES, OBJECTIVES } from './script.js';
 
 const LINE_BASE = 1.4;
 const LINE_PER_CHAR = 0.09;
 const LINE_MIN = 2.2;
 
-// タップで送る場面。危険の知らせでも割り込まない
-const BLOCKING_SCENES = new Set(['wake', 'memory']);
 const lineSeconds = (text) => Math.max(LINE_MIN, LINE_BASE + LINE_PER_CHAR * text.length);
 const PHASE_ORDER = ['TITLE', 'PROLOGUE', 'FOREST', 'CHAPEL_APPROACH', 'CHAPEL_INTERIOR', 'CHAPTER_COMPLETE', 'CRYSTAL_BATTLE'];
 const atLeast = (progress, phase) => PHASE_ORDER.indexOf(progress.phase()) >= PHASE_ORDER.indexOf(phase);
 
+// ── 第一章の決まり ──
 // 保存から再開したときの目的
 export function objectiveFor(progress) {
   const phase = progress.phase();
@@ -40,7 +40,59 @@ export function interactablesFor(progress) {
   return list;
 }
 
-export function createDirector(progress, { scenes = SCENES } = {}) {
+function chapter1React(signals, { play, progress, action }) {
+  for (const zone of signals.zones) {
+    if (zone === 'plaza' && !progress.seen('bridgeGone')) play('plaza');
+    if (zone === 'overlook') play('bridgeGone');
+    if (zone === 'chapelFront' && progress.flag('gateOpen')) play('chapelArrive');
+    if (zone === 'nave' && atLeast(progress, 'CHAPEL_APPROACH')) play('nave');
+  }
+  for (const id of signals.noticed) {
+    if (id === 'guard-2' || id === 'guard-3') play('warnTwo', { urgent: true });
+  }
+  for (const id of signals.defeated) {
+    if (id === 'guard-1') play('afterFirstFight');
+  }
+
+  const id = signals.interact;
+  if (!id) return;
+  // 調べたときの反応は、エリアの話より先に出す（タップ待ちの場面には割り込まない）
+  const now = { urgent: true, resume: false };
+  if (id === 'flowers') play('flowers', now);
+  if (id === 'memorial') play('memorial', now);
+  if (id === 'gate') play('gateLocked', { ...now, once: false });
+  if (id === 'winch') play('winchJammed', now);
+  if (id === 'lever') {
+    if (progress.flag('winchFreed')) play('leverPulled', now);
+    else play('leverStuck', { ...now, once: false });
+  }
+  if (id === 'mural') play('memory', now);
+  if (id === 'altar') play('altar', now);
+  if (id === 'pilgrimPath') action('toCrystal');
+}
+
+export const CHAPTER1_RULES = {
+  scenes: SCENES,
+  // タップで送る場面。危険の知らせでも割り込まない
+  blocking: new Set(['wake', 'memory']),
+  objectiveFor,
+  interactablesFor,
+  react: chapter1React,
+  // 物語の始まり：目覚めをまだ見ていなければ流し、操作を止める
+  begin: ({ play, progress }) => {
+    if (progress.phase() === 'PROLOGUE' && !progress.seen('wake')) {
+      play('wake');
+      return { control: false };
+    }
+    return { control: true };
+  },
+};
+
+export function createDirector(progress, rules = CHAPTER1_RULES) {
+  const scenes = rules.scenes;
+  const BLOCKING_SCENES = rules.blocking ?? new Set();
+  const objectiveFor = rules.objectiveFor;
+  const interactablesFor = rules.interactablesFor;
   let current = null;   // { id, steps, index, timer }
   let queue = [];
   let subtitle = null;
@@ -151,7 +203,7 @@ export function createDirector(progress, { scenes = SCENES } = {}) {
 
   // 記憶のスキップ：label 'memoryEnd' の手順まで、字幕を飛ばして進める
   function skipMemory() {
-    if (current?.id !== 'memory') return;
+    if (!current) return;
     const end = current.steps.findIndex((step) => step.label === 'memoryEnd');
     if (end < 0 || current.index >= end) return;
     current.index = end;
@@ -170,42 +222,18 @@ export function createDirector(progress, { scenes = SCENES } = {}) {
   }
 
   function react(signals) {
-    for (const zone of signals.zones) {
-      if (zone === 'plaza' && !progress.seen('bridgeGone')) play('plaza');
-      if (zone === 'overlook') play('bridgeGone');
-      if (zone === 'chapelFront' && progress.flag('gateOpen')) play('chapelArrive');
-      if (zone === 'nave' && atLeast(progress, 'CHAPEL_APPROACH')) play('nave');
-    }
-    for (const id of signals.noticed) {
-      if (id === 'guard-2' || id === 'guard-3') play('warnTwo', { urgent: true });
-    }
-    for (const id of signals.defeated) {
-      progress.defeat(id);
-      if (id === 'guard-1') play('afterFirstFight');
-    }
-
-    const id = signals.interact;
-    if (!id || !interactablesFor(progress).includes(id)) return;
-    // 調べたときの反応は、エリアの話より先に出す（タップ待ちの場面には割り込まない）
-    const now = { urgent: true, resume: false };
-    if (id === 'flowers') play('flowers', now);
-    if (id === 'memorial') play('memorial', now);
-    if (id === 'gate') play('gateLocked', { ...now, once: false });
-    if (id === 'winch') play('winchJammed', now);
-    if (id === 'lever') {
-      if (progress.flag('winchFreed')) play('leverPulled', now);
-      else play('leverStuck', { ...now, once: false });
-    }
-    if (id === 'mural') play('memory', now);
-    if (id === 'altar') play('altar', now);
-    if (id === 'pilgrimPath') actions.push('toCrystal');
+    for (const id of signals.defeated) progress.defeat(id);
+    const allowed = signals.interact && interactablesFor(progress).includes(signals.interact);
+    rules.react({ ...signals, interact: allowed ? signals.interact : null }, {
+      play, progress, action: (name) => actions.push(name), atLeast: (phase) => atLeast(progress, phase),
+    });
   }
 
-  // 記憶の場面のうち、タップで送る部分（memoryEnd の手前まで）にいるか
+  // 記憶など、タップで送れてスキップできる部分（label 'memoryEnd' の手前まで）にいるか
   function inMemoryPart() {
-    if (current?.id !== 'memory') return false;
+    if (!current) return false;
     const end = current.steps.findIndex((step) => step.label === 'memoryEnd');
-    return current.index < end;
+    return end >= 0 && current.index < end;
   }
 
   function output() {
@@ -215,7 +243,7 @@ export function createDirector(progress, { scenes = SCENES } = {}) {
       waitingTap,
       objective,
       control,
-      blocking: waitingTap || memory || (current?.id === 'wake' && !control),
+      blocking: waitingTap || memory || (BLOCKING_SCENES.has(current?.id) && !control),
       inMemory: memory,
       actions,
       interactables: interactablesFor(progress),
@@ -232,10 +260,7 @@ export function createDirector(progress, { scenes = SCENES } = {}) {
     waitingTap = false;
     objective = objectiveFor(progress);
     control = true;
-    if (progress.phase() === 'PROLOGUE' && !progress.seen('wake')) {
-      control = false;
-      play('wake');
-    }
+    control = rules.begin ? rules.begin({ play, progress }).control : true;
     return output();
   }
 
