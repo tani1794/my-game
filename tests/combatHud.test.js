@@ -61,3 +61,25 @@ test('照準マークと clear', () => {
   expect(root.querySelectorAll('.damage-number')).toHaveLength(0);
   expect(root.querySelector('.result').hidden).toBe(true);
 });
+
+test('勝ち：最速と新記録、タイトルへのボタン', () => {
+  const { root, hud } = make();
+  const title = vi.fn();
+  hud.onTitle(title);
+  hud.showResult('won', 125, { best: 125, isNew: true });
+  expect(root.querySelector('.result-best').textContent).toContain('2:05');
+  expect(root.querySelector('.result-new').hidden).toBe(false);
+  root.querySelector('.result-title-button').click();
+  expect(title).toHaveBeenCalledTimes(1);
+  hud.showResult('won', 130, { best: 125, isNew: false });
+  expect(root.querySelector('.result-new').hidden).toBe(true);
+  expect(root.querySelector('.result-best').hidden).toBe(false);
+});
+
+test('負け：最速と新記録は出さない', () => {
+  const { root, hud } = make();
+  hud.showResult('won', 125, { best: 125, isNew: true });
+  hud.showResult('lost');
+  expect(root.querySelector('.result-best').hidden).toBe(true);
+  expect(root.querySelector('.result-new').hidden).toBe(true);
+});

@@ -141,9 +141,37 @@
   color: #e8e2d0cc;
 }
 
-.result-retry {
-  margin-top: 18px;
-  padding: 8px 28px;
+/* 最速記録と新記録 */
+.result-records {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  min-height: 18px;
+  margin-top: 4px;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+}
+
+.result-best {
+  color: #e8e2d0cc;
+}
+
+.result-new {
+  color: #f0c870;
+  font-weight: 600;
+  text-shadow: 0 0 6px #c9a96a;
+}
+
+.result-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.result-retry,
+.result-title-button {
+  padding: 8px 22px;
   pointer-events: auto;
   border: 1px solid #c9a96a;
   color: #e8e2d0;
@@ -165,12 +193,14 @@
     background-color 80ms;
 }
 
-.result-retry:active {
+.result-retry:active,
+.result-title-button:active {
   transform: scale(0.96);
   background: #2c3e52ee;
 }
 
-.result-retry:focus-visible {
+.result-retry:focus-visible,
+.result-title-button:focus-visible {
   outline: 2px solid #e8e2d0;
   outline-offset: 3px;
 }
@@ -201,8 +231,12 @@
     margin-top: 5px;
   }
 
-  .result-retry {
-    margin-top: 12px;
+  .result-buttons {
+    margin-top: 10px;
+  }
+
+  .result-retry,
+  .result-title-button {
     padding-block: 7px;
   }
 }

@@ -29,7 +29,14 @@ export function createCombatHud(root) {
     <div class="result" hidden>
       <div class="result-title"></div>
       <div class="result-time"></div>
-      <button class="result-retry" type="button">もう一度</button>
+      <div class="result-records">
+        <span class="result-best" hidden></span>
+        <span class="result-new" hidden>新記録</span>
+      </div>
+      <div class="result-buttons">
+        <button class="result-retry" type="button">もう一度</button>
+        <button class="result-title-button" type="button">タイトルへ</button>
+      </div>
     </div>
   `;
   root.appendChild(hud);
@@ -40,13 +47,21 @@ export function createCombatHud(root) {
   const result = hud.querySelector('.result');
   const resultTitle = hud.querySelector('.result-title');
   const resultTime = hud.querySelector('.result-time');
+  const resultBest = hud.querySelector('.result-best');
+  const resultNew = hud.querySelector('.result-new');
   const retryButton = hud.querySelector('.result-retry');
+  const titleButton = hud.querySelector('.result-title-button');
 
   const damageNumbers = [];
   const retryCallbacks = [];
+  const titleCallbacks = [];
 
   retryButton.addEventListener('click', () => {
     retryCallbacks.slice().forEach((callback) => callback());
+  });
+
+  titleButton.addEventListener('click', () => {
+    titleCallbacks.slice().forEach((callback) => callback());
   });
 
   function setBeastVisible(visible) {
@@ -93,11 +108,15 @@ export function createCombatHud(root) {
     });
   }
 
-  function showResult(kind, timeSeconds) {
+  // 勝ったときは、最速記録と、更新したかどうかも出す
+  function showResult(kind, timeSeconds, { best = null, isNew = false } = {}) {
     const won = kind === 'won';
 
     resultTitle.textContent = won ? '討伐完了' : '力尽きた';
     resultTime.textContent = won ? `時間 ${formatTime(timeSeconds)}` : '';
+    resultBest.hidden = !won || best === null;
+    resultBest.textContent = best === null ? '' : `最速 ${formatTime(best)}`;
+    resultNew.hidden = !won || !isNew;
     result.hidden = false;
   }
 
@@ -107,6 +126,10 @@ export function createCombatHud(root) {
 
   function onRetry(callback) {
     retryCallbacks.push(callback);
+  }
+
+  function onTitle(callback) {
+    titleCallbacks.push(callback);
   }
 
   function update(dt) {
@@ -144,6 +167,7 @@ export function createCombatHud(root) {
     showResult,
     hideResult,
     onRetry,
+    onTitle,
     update,
     clear,
   };
