@@ -36,7 +36,7 @@ test('印・一度きりの会話・倒した敵・復帰地点を保存し、�
   progress.defeat('guard-1');
   progress.reach('gate');
   const saved = JSON.parse(storage.data[SAVE_KEY]);
-  expect(saved.version).toBe(1);
+  expect(saved.version).toBe(2);
   const again = createProgress(storage);
   expect(again.hasSave()).toBe(true);
   expect(again.phase()).toBe('FOREST');
@@ -102,4 +102,35 @@ test('矛盾した保存（門が閉じたまま門の先や礼拝堂から再�
   }
   const good = createProgress(memoryStorage({ [SAVE_KEY]: JSON.stringify({ version: 1, phase: 'CHAPEL_INTERIOR', checkpoint: 'chapel', flags: { gateOpen: true }, seen: [], defeated: [] }) }));
   expect(good.hasSave()).toBe(true);
+});
+
+// ── 第二章：版 2（エリアと復帰地点） ──
+test('版 1（第一章）の保存は、版 2 へ移し替えて読める', () => {
+  const v1 = { version: 1, phase: 'CHAPEL_INTERIOR', checkpoint: 'chapel', flags: { gateOpen: true }, seen: ['wake'], defeated: ['guard-1'] };
+  const storage = memoryStorage({ [SAVE_KEY]: JSON.stringify(v1) });
+  const progress = createProgress(storage);
+  expect(progress.hasSave()).toBe(true);
+  expect(progress.area()).toBe('chapter1');
+  expect(progress.checkpoint()).toBe('chapel');
+  expect(progress.seen('wake')).toBe(true);
+  progress.set('x');
+  expect(JSON.parse(storage.data[SAVE_KEY]).version).toBe(2);
+});
+
+test('次のエリアへ移ると、エリアと復帰地点を一緒に保存する', () => {
+  const storage = memoryStorage();
+  const progress = createProgress(storage);
+  progress.set('gateOpen');
+  progress.advance('CHAPTER_COMPLETE');
+  progress.enterArea('rose', 'roseEntry');
+  const again = createProgress(storage);
+  expect(again.area()).toBe('rose');
+  expect(again.checkpoint()).toBe('roseEntry');
+});
+
+test('エリアと復帰地点が合わない保存は、はじめから', () => {
+  const bad = { version: 2, area: 'rose', phase: 'CHAPTER_COMPLETE', checkpoint: 'crystalMid', flags: { gateOpen: true }, seen: [], defeated: [] };
+  expect(createProgress(memoryStorage({ [SAVE_KEY]: JSON.stringify(bad) })).hasSave()).toBe(false);
+  const unknown = { ...bad, area: 'moon', checkpoint: 'roseEntry' };
+  expect(createProgress(memoryStorage({ [SAVE_KEY]: JSON.stringify(unknown) })).hasSave()).toBe(false);
 });
