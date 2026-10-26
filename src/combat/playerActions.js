@@ -19,10 +19,11 @@ const HIT_STUN = 0.4;
 const COMBO_WINDOW = 0.4; // 当たる時間の終わりから
 const FACE_RANGE = 5;
 
+// power：技の倍率（src/combat/damage.js の COMBO_POWER と同じ）。攻撃力 10 で 10・12・22
 const ATTACKS = [
-  { animation: '1H_Melee_Attack_Slice_Diagonal', duration: 0.5, hitStart: 0.15, hitEnd: 0.3, damage: 10 },
-  { animation: '1H_Melee_Attack_Slice_Horizontal', duration: 0.5, hitStart: 0.12, hitEnd: 0.27, damage: 12 },
-  { animation: '1H_Melee_Attack_Chop', duration: 0.6, hitStart: 0.25, hitEnd: 0.42, damage: 22 },
+  { animation: '1H_Melee_Attack_Slice_Diagonal', duration: 0.5, hitStart: 0.15, hitEnd: 0.3, power: 1 },
+  { animation: '1H_Melee_Attack_Slice_Horizontal', duration: 0.5, hitStart: 0.12, hitEnd: 0.27, power: 1.2 },
+  { animation: '1H_Melee_Attack_Chop', duration: 0.6, hitStart: 0.25, hitEnd: 0.42, power: 2.2 },
 ];
 
 function wrapAngle(a) {
@@ -39,7 +40,9 @@ function dodgeAnimation(facing, direction) {
 
 const once = (name) => ({ name, loop: false, timeScale: 1 });
 
-export function createPlayerActions({ maxHp = MAX_HP } = {}) {
+// attack：攻撃力（進化前 10、誓剣ルーメン 35）。振りのダメージは攻撃力 × 技の倍率（防御は相手の側で計算する）
+export function createPlayerActions({ maxHp = MAX_HP, attack: attackStat = 10 } = {}) {
+  let attack = attackStat;
   let hp;
   let stamina;
   let sinceStaminaUse;
@@ -143,8 +146,8 @@ export function createPlayerActions({ maxHp = MAX_HP } = {}) {
     timer += dt;
 
     if (mode === 'attack') {
-      const attack = ATTACKS[stage];
-      if (timer >= attack.duration) {
+      const move = ATTACKS[stage];
+      if (timer >= move.duration) {
         const finisher = stage === ATTACKS.length - 1;
         // 3段目のあとは、早押しがあっても一度止まる（4段目はない）
         if (reserved && !finisher) {
@@ -152,7 +155,7 @@ export function createPlayerActions({ maxHp = MAX_HP } = {}) {
         } else {
           reserved = false;
           mode = 'free';
-          comboLeft = COMBO_WINDOW - (attack.duration - attack.hitEnd);
+          comboLeft = COMBO_WINDOW - (move.duration - move.hitEnd);
           if (stage === ATTACKS.length - 1) nextStage = 0;
         }
       }
@@ -174,12 +177,12 @@ export function createPlayerActions({ maxHp = MAX_HP } = {}) {
 
   function output(dt, intent) {
     if (mode === 'attack') {
-      const attack = ATTACKS[stage];
-      const hitting = timer >= attack.hitStart && timer <= attack.hitEnd;
+      const move = ATTACKS[stage];
+      const hitting = timer >= move.hitStart && timer <= move.hitEnd;
       return frame({
-        animation: once(attack.animation),
+        animation: once(move.animation),
         face: swingFace,
-        swing: hitting ? { id: swingId, damage: attack.damage } : null,
+        swing: hitting ? { id: swingId, damage: Math.round(attack * move.power), power: move.power, stage } : null,
       });
     }
 
@@ -230,5 +233,5 @@ export function createPlayerActions({ maxHp = MAX_HP } = {}) {
   }
 
   reset();
-  return { update, takeHit, reset, hp: () => hp };
+  return { update, takeHit, reset, hp: () => hp, attack: () => attack, setAttack: (value) => { attack = value; } };
 }

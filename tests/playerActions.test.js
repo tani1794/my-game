@@ -192,3 +192,19 @@ test('連打しても3段目の後は必ず一度止まる（4段目はない）
   expect(chopStart).toBeGreaterThan(0);
   expect(names[chopEnd]).toBe('free');
 });
+
+// ── 第二章：攻撃力（誓剣ルーメン）と技の倍率 ──
+test('振りには技の倍率と段が付き、ダメージは攻撃力 × 倍率（既定の攻撃力は 10）', () => {
+  const actions = createPlayerActions();
+  let swing = null;
+  actions.update(1 / 60, { ...idle, attack: true });
+  for (let i = 0; i < 30 && !swing; i++) swing = actions.update(1 / 60, idle).swing;
+  expect(swing).toMatchObject({ damage: 10, power: 1, stage: 0 });
+  const strong = createPlayerActions({ attack: 35 });
+  strong.update(1 / 60, { ...idle, attack: true });
+  swing = null;
+  for (let i = 0; i < 30 && !swing; i++) swing = strong.update(1 / 60, idle).swing;
+  expect(swing).toMatchObject({ damage: 35, power: 1, stage: 0 });
+  strong.setAttack(10);
+  expect(strong.attack()).toBe(10);
+});
