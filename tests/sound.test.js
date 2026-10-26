@@ -226,7 +226,7 @@ test('曲は繰り返し再生し、繰り返す範囲を指定できる。音�
   expect(source.start).toHaveBeenCalled();
   const gain = audio.gains[audio.gains.length - 1];
   expect(gain.gain.value).toBe(0);
-  expect(gain.gain.ramps).toContainEqual({ value: 0.35, time: 11 });
+  expect(gain.gain.ramps).toContainEqual({ value: 0.5, time: 11 });
 });
 
 test('別の曲へ切り替えると、前の曲は fade 秒で消えて止まる', async () => {
@@ -283,4 +283,39 @@ test('曲を止めたあとは、準備ができても始めない', async () =>
   await sound.load(['music-d']);
   sound.unlock();
   expect(audio.sources.filter((s) => s.loop && s.start.mock.calls.length > 0)).toHaveLength(0);
+});
+
+test('曲は、ほかの音の読み込みを待たず、その曲が読めたらすぐ始める', async () => {
+  const audio = fakeAudio();
+  let releaseSlow;
+  const slow = new Promise((resolve) => { releaseSlow = resolve; });
+  const fetch = async (url) => {
+    if (url.includes('slow')) await slow;
+    return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) };
+  };
+  const sound = createSound({ context: () => audio.ctx, fetch, storage: memoryStorage() });
+  sound.unlock();
+  sound.playMusic('music-d', { loopStart: 1, loopEnd: 2 });
+  const loading = sound.load(['slow-effect', 'music-d']);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(audio.sources.some((s) => s.loop && s.loopEnd === 2 && s.start.mock.calls.length > 0)).toBe(true);
+  releaseSlow();
+  await loading;
+});
+
+test('風は曲の 40% の聞こえ方：音量 0.15（曲は 0.5）', async () => {
+  const { sources, gains, sound } = await ready(['wind']);
+  sound.startAmbient('wind');
+  expect(sources.some((s) => s.loop && s.start.mock.calls.length > 0)).toBe(true);
+  expect(gains[gains.length - 1].gain.value).toBeCloseTo(0.15);
+});
+
+test('負けた音（lose）は、ほかの画面の音より小さく鳴らす', async () => {
+  const { gains, sound, ctx } = await ready(['lose', 'click']);
+  sound.play({ name: 'click', group: 'ui' });
+  const click = voiceGain(gains);
+  ctx.currentTime = 1;
+  sound.play({ name: 'lose', group: 'ui' });
+  expect(voiceGain(gains)).toBeCloseTo(click * 0.45);
 });

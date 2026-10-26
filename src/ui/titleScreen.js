@@ -10,6 +10,9 @@ function formatSeconds(seconds) {
 
 export function createTitleScreen(root, { image, logo = null }) {
   const callbacks = [];
+  const awakenCallbacks = [];
+  // はじめの1回：iPhone は画面に触れるまで音を出せないので、1回目のタップは音を有効にするだけにする
+  let prelude = false;
 
   const screen = document.createElement('div');
   screen.className = 'title-screen';
@@ -60,6 +63,12 @@ export function createTitleScreen(root, { image, logo = null }) {
   root.append(screen);
 
   function begin() {
+    if (prelude) {
+      prelude = false;
+      start.textContent = 'TAP TO BEGIN';
+      for (const callback of [...awakenCallbacks]) callback();
+      return;
+    }
     for (const callback of [...callbacks]) {
       callback();
     }
@@ -113,6 +122,16 @@ export function createTitleScreen(root, { image, logo = null }) {
     showNotice(message) {
       notice.textContent = message;
       notice.hidden = false;
+    },
+
+    // on のあいだは TAP TO AWAKEN を出し、1回目のタップで onAwaken を呼んで TAP TO BEGIN に変える
+    setPrelude(on) {
+      prelude = Boolean(on);
+      start.textContent = prelude ? 'TAP TO AWAKEN' : 'TAP TO BEGIN';
+    },
+
+    onAwaken(callback) {
+      awakenCallbacks.push(callback);
     },
 
     onStart(callback) {

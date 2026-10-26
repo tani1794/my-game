@@ -362,7 +362,10 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+// 開いた直後のタイトル：1回目のタップで音を有効にしてタイトル曲を流し、2回目で開始する
 playTitleMusic(sound);
+titleScreen.setPrelude(true);
+titleScreen.onAwaken(() => sound.unlock());
 titleScreen.show(records.best());
 
 function handleEvents(events, time) {

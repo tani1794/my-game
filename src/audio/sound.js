@@ -5,8 +5,11 @@ import { asset } from '../paths.js';
 
 const MASTER = 0.8;
 const GROUP = { player: 0.7, beast: 0.9, ui: 0.4 };
-const AMBIENT = 0.25;
-const MUSIC = 0.35;
+// 曲と風：耳の聞こえ方（A 特性）で、風が曲の 40% になるように合わせた値
+const AMBIENT = 0.15;
+const MUSIC = 0.5;
+// 音ごとの大きさの調整（負けた音は、曲と同じくらいまで下げる）
+const VOICE = { lose: 0.45 };
 // 結晶獣の音は離れるほど小さく：6m 以内は 1、25m で 0.4（その先も 0.4）
 const NEAR = 6;
 const FAR = 25;
@@ -68,6 +71,8 @@ export function createSound({
       if (!response.ok) throw new Error(`${response.status}`);
       const data = await response.arrayBuffer();
       buffers.set(name, await ensureContext().decodeAudioData(data));
+      // 待っている曲なら、ほかの音の読み込みを待たずにすぐ始める
+      if (!music && wantedMusic?.name === name) startWantedMusic(1);
     } catch (error) {
       // 読めない音は鳴らさずに続ける
       console.warn(`効果音を読み込めませんでした: ${name}`, error);
@@ -109,7 +114,7 @@ export function createSound({
     }
 
     const gain = ctx.createGain();
-    gain.gain.value = (GROUP[cue.group] ?? 1) * distanceGain(cue.distance);
+    gain.gain.value = (GROUP[cue.group] ?? 1) * (VOICE[cue.name] ?? 1) * distanceGain(cue.distance);
     gain.connect(master);
 
     const source = ctx.createBufferSource();

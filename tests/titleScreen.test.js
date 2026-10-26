@@ -111,3 +111,37 @@ test('お知らせはタイトル画面の中に出す（タイトル中もほ�
   expect(notice.textContent).toBe('この端末では遊べません');
   expect(notice.hidden).toBe(false);
 });
+
+test('はじめの1回（setPrelude）：TAP TO AWAKEN を押すと onAwaken だけ。そのあと TAP TO BEGIN で開始', () => {
+  const { root, title } = make();
+  const awaken = vi.fn();
+  const start = vi.fn();
+  title.onAwaken(awaken);
+  title.onStart(start);
+  title.setPrelude(true);
+  title.show(null);
+  const button = root.querySelector('.title-start');
+  expect(button.textContent).toBe('TAP TO AWAKEN');
+  root.querySelector('.title-screen').click();
+  expect(awaken).toHaveBeenCalledTimes(1);
+  expect(start).not.toHaveBeenCalled();
+  expect(button.textContent).toBe('TAP TO BEGIN');
+  button.click();
+  expect(start).toHaveBeenCalledTimes(1);
+  expect(awaken).toHaveBeenCalledTimes(1);
+});
+
+test('はじめの1回は Enter キーでも同じ（1回目は音、2回目で開始）', () => {
+  const { title } = make();
+  const awaken = vi.fn();
+  const start = vi.fn();
+  title.onAwaken(awaken);
+  title.onStart(start);
+  title.setPrelude(true);
+  title.show(null);
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  expect(awaken).toHaveBeenCalledTimes(1);
+  expect(start).not.toHaveBeenCalled();
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  expect(start).toHaveBeenCalledTimes(1);
+});
