@@ -45,3 +45,22 @@ test('表示中のタップで onStart、隠れているときは呼ばない', 
   title.hide();
   expect(root.querySelector('.title-screen').hidden).toBe(true);
 });
+
+test('ロゴを重ねて出し、3D表示に切り替えられる', () => {
+  const root = document.createElement('div');
+  document.body.append(root);
+  const title = createTitleScreen(root, { image: '/textures/title-art.webp', logo: '/textures/title-logo.webp' });
+  const screen = root.querySelector('.title-screen');
+  expect(root.querySelector('.title-logo').getAttribute('src')).toBe('/textures/title-logo.webp');
+  expect(screen.classList.contains('is-3d')).toBe(false);
+  title.setDepthMode(true);
+  expect(screen.classList.contains('is-3d')).toBe(true);
+});
+
+test('タイトルを出している間は、root に title-open を付ける（ほかの画面を隠すため）', () => {
+  const { root, title } = make();
+  title.show(null);
+  expect(root.classList.contains('title-open')).toBe(true);
+  title.hide();
+  expect(root.classList.contains('title-open')).toBe(false);
+});

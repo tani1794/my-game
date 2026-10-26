@@ -8,7 +8,7 @@ function formatSeconds(seconds) {
   return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
 }
 
-export function createTitleScreen(root, { image }) {
+export function createTitleScreen(root, { image, logo = null }) {
   const callbacks = [];
 
   const screen = document.createElement('div');
@@ -26,6 +26,14 @@ export function createTitleScreen(root, { image }) {
   art.setAttribute('alt', '');
   art.setAttribute('draggable', 'false');
 
+  // ロゴは絵から切り出したもの。絵が動いても、いつも下中央に重ねて出す
+  const logoImage = document.createElement('img');
+  logoImage.className = 'title-logo';
+  logoImage.setAttribute('alt', 'OBLIVION ARENA');
+  logoImage.setAttribute('draggable', 'false');
+  logoImage.hidden = logo === null;
+  if (logo !== null) logoImage.setAttribute('src', logo);
+
   const start = document.createElement('div');
   start.className = 'title-start';
   start.textContent = 'タップで開始';
@@ -42,7 +50,7 @@ export function createTitleScreen(root, { image }) {
   bestTime.className = 'title-best-time';
 
   best.append(bestLabel, ' ', bestTime);
-  screen.append(blur, art, start, best);
+  screen.append(blur, art, logoImage, start, best);
   root.append(screen);
 
   screen.addEventListener('click', () => {
@@ -56,6 +64,7 @@ export function createTitleScreen(root, { image }) {
   return {
     show(bestSeconds) {
       screen.hidden = false;
+      root.classList.add('title-open');
 
       if (
         typeof bestSeconds === 'number'
@@ -71,6 +80,12 @@ export function createTitleScreen(root, { image }) {
 
     hide() {
       screen.hidden = true;
+      root.classList.remove('title-open');
+    },
+
+    // 3D表示（裏の canvas に描く）のときは、止まった絵を隠して透かす
+    setDepthMode(on) {
+      screen.classList.toggle('is-3d', Boolean(on));
     },
 
     onStart(callback) {

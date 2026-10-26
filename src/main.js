@@ -23,6 +23,7 @@ import { createStick } from './ui/stick.js';
 import { createHud } from './ui/hud.js';
 import { createMinimap } from './ui/minimap.js';
 import { createTitleScreen } from './ui/titleScreen.js';
+import { createTitleScene } from './ui/titleScene.js';
 import { createPauseMenu } from './ui/pauseMenu.js';
 import { createTutorial, createTutorialView } from './ui/tutorial.js';
 import { nextState } from './game/flow.js';
@@ -40,7 +41,10 @@ const combatHud = createCombatHud(app);
 const minimap = createMinimap(hud.minimapCanvas);
 const tutorialView = createTutorialView(app);
 const pauseMenu = createPauseMenu(app);
-const titleScreen = createTitleScreen(app, { image: asset('textures/title.webp') });
+const titleScreen = createTitleScreen(app, {
+  image: asset('textures/title-art.webp'),
+  logo: asset('textures/title-logo.webp'),
+});
 
 // ── 3Dの基本設定 ──
 const canvas = document.querySelector('#game');
@@ -52,6 +56,24 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(window.innerWidth, window.innerHeight);
 
 const scene = new THREE.Scene();
+
+// ── タイトルの3D写真：絵と奥行きの地図が読めたら、止まった絵の代わりに使う ──
+let titleScene = null;
+let titleTime = 0;
+const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+const titleLoader = new THREE.TextureLoader();
+Promise.all([
+  titleLoader.loadAsync(asset('textures/title-art.webp')),
+  titleLoader.loadAsync(asset('textures/title-depth.png')),
+]).then(([image, depth]) => {
+  image.colorSpace = THREE.SRGBColorSpace;
+  titleScene = createTitleScene({ image, depth });
+  titleScene.setReducedMotion(Boolean(reducedMotion?.matches));
+  reducedMotion?.addEventListener?.('change', (event) => titleScene.setReducedMotion(event.matches));
+  titleScreen.setDepthMode(true);
+  // ?debug のときだけ、場面の時刻を外から合わせられるようにする（画面の確認用）
+  if (quality.debug) window.__titleTime = (seconds) => { titleTime = seconds; };
+}).catch((error) => console.warn('タイトルの3D表示を準備できませんでした。止まった絵で続けます', error));
 const lighting = createLighting(scene, renderer);
 const terrain = createTerrain(scene);
 const ruins = createRuins(scene, terrain.heightAt);
@@ -429,7 +451,19 @@ window.addEventListener('blur', clearInput);
 document.addEventListener('visibilitychange', clearInput);
 
 let lastTime = performance.now();
-let titleWait = 0;
+let warmedUp = false;
+
+function renderTitle() {
+  titleScene.update(titleTime, window.innerWidth, window.innerHeight, renderer.getPixelRatio());
+  renderer.render(titleScene.scene, titleScene.camera);
+}
+
+// 結晶獣と木々が読めたら、戦いの絵の準備（シェーダーの用意）を描かずに済ませる。始めた瞬間に引っかからないように
+function warmUp() {
+  if (warmedUp || !beast || !vegetation) return;
+  warmedUp = true;
+  renderer.compile(scene, followCamera.camera);
+}
 
 function animate(now) {
   requestAnimationFrame(animate);
@@ -440,11 +474,10 @@ function animate(now) {
 
   if (state === 'paused') return;
   if (state === 'title') {
-    // 画像の裏で、ときどき描いておく（読み込んだ模型の準備を開始前に済ませ、始めた瞬間に引っかからないように）
-    titleWait += rawDt;
-    if (titleWait >= 1) {
-      titleWait = 0;
-      post.render();
+    warmUp();
+    if (titleScene) {
+      titleTime += dt;
+      renderTitle();
     }
     return;
   }
@@ -479,7 +512,8 @@ function resize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   post.setSize(window.innerWidth, window.innerHeight);
   // 大きさを変えると絵が消えるので、止めている間も1回描き直す
-  post.render();
+  if (state === 'title' && titleScene) renderTitle();
+  else post.render();
 }
 
 // iPhone の Safari は、アドレスバーの出入りで visualViewport だけが変わることがあるので両方を見る

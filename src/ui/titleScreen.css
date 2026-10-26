@@ -19,7 +19,8 @@
 }
 
 .title-screen[hidden],
-.title-best[hidden] {
+.title-best[hidden],
+.title-logo[hidden] {
   display: none !important;
 }
 
@@ -140,5 +141,39 @@
 
   .title-best-time {
     font-size: 12px;
+  }
+}
+
+/* タイトルを出している間は、裏の3D（canvas）以外の画面を隠す */
+.title-open > :not(.title-screen):not(canvas) {
+  visibility: hidden;
+}
+
+/* 3D表示：止まった絵の代わりに裏の canvas を見せ、下を暗くしてロゴを読みやすく */
+.title-screen.is-3d {
+  background: linear-gradient(to top, #050a10e6 0%, #050a1080 22%, transparent 42%);
+}
+
+.title-screen.is-3d .title-blur,
+.title-screen.is-3d .title-art {
+  display: none;
+}
+
+.title-logo {
+  position: absolute;
+  left: 50%;
+  bottom: calc(30px + env(safe-area-inset-bottom));
+  z-index: 2;
+  width: min(64vw, 620px);
+  transform: translateX(-50%);
+  filter: drop-shadow(0 3px 6px #000c);
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+@media (max-height: 430px) {
+  .title-logo {
+    width: min(60vw, 520px);
+    bottom: calc(26px + env(safe-area-inset-bottom));
   }
 }
