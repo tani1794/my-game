@@ -221,7 +221,7 @@ export function createCrystalRules() {
         play('gateWarn');
       }
       if (zones.has('arena') && progress.flag('crownGateOpen') && !progress.flag('vergrasDefeated') && !signals.bossActive) {
-        play('bossIntro', { once: false });
+        play('bossIntro', { once: false, urgent: true, resume: false });
       }
       if (zones.has('exit') && progress.flag('vergrasDefeated')) play('exit', { once: false });
 
