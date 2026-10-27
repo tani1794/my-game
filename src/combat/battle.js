@@ -3,11 +3,12 @@
 import { createPlayerActions } from './playerActions.js';
 import { createBeastBrain } from './beastBrain.js';
 import { shapeContains, sectorHitsCircle } from './shapes.js';
+import { computeDamage } from './damage.js';
 
 const MAX_DT = 0.05;
 const SWORD = { radius: 1.6, spread: (120 * Math.PI) / 180 };
-const STRIKE_DAMAGE = { slam: 30, charge: 35, spin: 25, rain: 20 };
-const RAIN_HIT_CAP = 2;
+export const STRIKE_DAMAGE = { slam: 30, charge: 35, spin: 25, rain: 20 };
+export const RAIN_HIT_CAP = 2;
 // 結晶獣の体：胴の前・中・後の円（全長約10.7m、幅約5.2m）
 const BODY = { radius: 2.6, reach: 2.75 };
 
@@ -28,9 +29,10 @@ export function decideOutcome(beastHp, playerHp) {
   return 'fighting';
 }
 
-export function createBattle({ seed = 1, beastHp, playerHp } = {}) {
-  const actions = createPlayerActions(playerHp === undefined ? {} : { maxHp: playerHp });
-  const brain = createBeastBrain({ seed, ...(beastHp === undefined ? {} : { maxHp: beastHp }) });
+// attack：主人公の攻撃力、defense：結晶獣の防御（物語の中の戦い「共鳴の王座」の体力を決めるのに使う）
+export function createBattle({ seed = 1, beastHp, playerHp, attack = 10, defense = 0, staggerEvery } = {}) {
+  const actions = createPlayerActions({ attack, ...(playerHp === undefined ? {} : { maxHp: playerHp }) });
+  const brain = createBeastBrain({ seed, ...(beastHp === undefined ? {} : { maxHp: beastHp }), ...(staggerEvery === undefined ? {} : { staggerEvery }) });
 
   let started;
   let outcome;
@@ -77,10 +79,11 @@ export function createBattle({ seed = 1, beastHp, playerHp } = {}) {
       const body = beastColliders ?? bodyColliders(lastBeast.position, lastBeast.facing);
       if (body.some((circle) => sectorHitsCircle(sword, circle))) {
         hitSwings.add(player.swing.id);
-        const result = brain.takeDamage(player.swing.damage);
+        const damage = computeDamage({ attack, power: player.swing.power, defense });
+        const result = brain.takeDamage(damage);
         events.push({
           type: 'beastHit',
-          damage: player.swing.damage,
+          damage,
           x: playerPos.x + Math.sin(facing) * 1.2,
           z: playerPos.z + Math.cos(facing) * 1.2,
         });

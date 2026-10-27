@@ -35,7 +35,7 @@ const ALIGN_MAX_TIME = 2.5;
 const RAIN = { count: 5, radius: 1.6, scatter: 3, spacing: 2.4, interval: 0.15 };
 const CUE_TIME = { slam: 0.5, spin: 0.6, rain: RAIN.interval * (RAIN.count - 1) + IMPACT_TIME };
 
-export function createBeastBrain({ seed = 1, start = { x: 0, z: -6, facing: 0 }, bounds = CENTER_BOUNDS, maxHp = MAX_HP } = {}) {
+export function createBeastBrain({ seed = 1, start = { x: 0, z: -6, facing: 0 }, bounds = CENTER_BOUNDS, maxHp = MAX_HP, staggerEvery = STAGGER_EVERY } = {}) {
   // 怒り状態は体力が半分を切ったとき（既定の1600なら800）
   const enrageBelow = maxHp * (ENRAGE_BELOW / MAX_HP);
   let random;
@@ -285,7 +285,7 @@ export function createBeastBrain({ seed = 1, start = { x: 0, z: -6, facing: 0 },
     if (newlyEnraged) enraged = true;
 
     staggerAccum += amount;
-    const stagger = staggerAccum >= STAGGER_EVERY;
+    const stagger = staggerAccum >= staggerEvery;
     if (stagger) {
       // 300 を超えた分は捨てる。出していた予告は消える
       staggerAccum = 0;

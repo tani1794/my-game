@@ -156,6 +156,12 @@ test('300ダメージでよろめき（2秒）、予告は消えて当たらな�
   expect(brain.takeDamage(250).stagger).toBe(false);
 });
 
+test('よろめくまでのダメージは変えられる（体力の多い「共鳴の王座」用）', () => {
+  const brain = createBeastBrain({ start: START, maxHp: 9000, staggerEvery: 900 });
+  expect(brain.takeDamage(800).stagger).toBe(false);
+  expect(brain.takeDamage(150).stagger).toBe(true);
+});
+
 test('体力が半分を切ると怒り状態。次の攻撃から予告が0.75倍（叩きつけ 0.675→0.7秒で下限）', () => {
   const brain = createBeastBrain({ start: START, maxHp: 1600 });
   for (let i = 0; i < 4; i++) brain.takeDamage(200); // 合計800 → 体力800（半分）、まだ

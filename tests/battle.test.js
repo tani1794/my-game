@@ -36,6 +36,21 @@ test('1回の振りで、何 frame 重なってもダメージは1回（威力10
   expect(hits[0].damage).toBe(10);
 });
 
+test('攻撃力と防御を渡すと、ダメージの計算式で減らす（誓剣ルーメン 35・防御 45 の1段目は 24）', () => {
+  const battle = createBattle({ attack: 35, defense: 45 });
+  const pos = { x: 0, z: 0.5 };
+  const events = [];
+  events.push(...step(battle, 0.01, pos, { attack: true }).events);
+  for (let t = 0; t < 0.5; t += 0.01) events.push(...step(battle, 0.01, pos).events);
+  const hits = events.filter((e) => e.type === 'beastHit');
+  expect(hits.map((h) => h.damage)).toEqual([24]);
+});
+
+test('結晶獣の体力・よろめきの量を渡せる', () => {
+  const battle = createBattle({ beastHp: 9000, staggerEvery: 900 });
+  expect(step(battle, 0.01, { x: 0, z: 6 }).beast.hp).toBe(9000);
+});
+
 test('体から 1.6m より離れていると当たらない', () => {
   const battle = createBattle();
   const pos = { x: 0, z: 1.2 }; // 縁まで 1.85m
