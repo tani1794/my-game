@@ -33,6 +33,7 @@ export const ROSE_SCENES = {
   ],
   stone: [
     { checkpoint: 'garden' },
+    { set: 'gardenStoneLit' },
     { toast: '残響の碑に触れた（保存しました）' },
   ],
   roseStatue: [

@@ -106,7 +106,7 @@ export async function createGuardViews(scene, posts, heightAt, { load = loadGLTF
     for (const frame of frames) {
       const view = views.get(frame.id);
       if (!view) continue;
-      view.object.position.set(frame.x, heightAt(frame.x, frame.z), frame.z);
+      view.object.position.set(frame.x, heightAt(frame.x, frame.z, frame.id), frame.z);
       view.object.rotation.y = frame.facing;
       play(view, frame.animation);
       view.mixer?.update(dt);
@@ -128,7 +128,7 @@ export async function createGuardViews(scene, posts, heightAt, { load = loadGLTF
       const showing = frame.telegraph;
       view.telegraph.visible = showing;
       if (showing) {
-        view.telegraph.position.set(frame.x, heightAt(frame.x, frame.z) + 0.05, frame.z);
+        view.telegraph.position.set(frame.x, heightAt(frame.x, frame.z, frame.id) + 0.05, frame.z);
         view.telegraph.rotation.y = frame.facing;
         view.telegraph.material.opacity = Math.min(0.55, view.telegraph.material.opacity + dt * 1.2);
       } else {
@@ -160,5 +160,14 @@ export async function createGuardViews(scene, posts, heightAt, { load = loadGLTF
     if (view) view.flash = 0.18;
   }
 
-  return { update, hitFlash, hide, object: (id) => views.get(id)?.object };
+  function dispose() {
+    for (const view of views.values()) {
+      scene.remove(view.object, view.telegraph);
+      view.mixer?.stopAllAction();
+      view.object.traverse((part) => { part.geometry?.dispose(); });
+    }
+    views.clear();
+  }
+
+  return { update, hitFlash, hide, dispose, object: (id) => views.get(id)?.object };
 }

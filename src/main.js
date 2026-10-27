@@ -27,6 +27,8 @@ import { createTitleScreen } from './ui/titleScreen.js';
 import { createSilentScene } from './title/silentScene.js';
 import { createStoryHud } from './ui/storyHud.js';
 import { createChapterRunner } from './chapter/runner.js';
+import { createAreaRunner } from './areas/runner.js';
+import { AREA_MODULES } from './areas/index.js';
 import { createProgress } from './story/progress.js';
 import { createPauseMenu } from './ui/pauseMenu.js';
 import { createTutorial, createTutorialView } from './ui/tutorial.js';
@@ -265,21 +267,41 @@ const chapter = createChapterRunner({
   sound,
   preset: QUALITY_PRESETS[quality.tier],
   lite: Boolean(window.matchMedia?.('(pointer: coarse)').matches),
+  // 礼拝堂の裏の巡礼路から、第二章（白薔薇の迷宮橋）へ
   onToCrystal: () => {
-    if (!go('battle')) return;
-    storyProgress.advance('CRYSTAL_BATTLE');
     chapter.stop();
-    app.classList.remove('story-mode');
-    combatHud.setBeastVisible(Boolean(beast));
-    beginFight();
+    storyProgress.enterArea('rose', 'roseEntry');
+    activeStory = areaRunner;
+    areaRunner.start(storyProgress);
   },
 });
+
+// ── 第二章「古竜の谷」：白薔薇の迷宮橋・洞穴・4つの谷（エリアごとに読み込む） ──
+const areaRunner = createAreaRunner({
+  renderer,
+  followCamera,
+  input,
+  stick,
+  hud,
+  combatHud,
+  storyHud,
+  sound,
+  preset: QUALITY_PRESETS[quality.tier],
+  lite: Boolean(window.matchMedia?.('(pointer: coarse)').matches),
+  areas: AREA_MODULES,
+  root: app,
+});
+// 今動いている物語（第一章か、第二章のエリア）
+let activeStory = chapter;
+// ?legacy：今までの結晶獣戦（旧版）をタイトルから直接遊ぶ
+const LEGACY_BATTLE = new URLSearchParams(window.location.search).has('legacy');
 if (quality.debug) {
   window.__chapter = chapter;
+  window.__areas = areaRunner;
   window.__setYaw = (yaw) => followCamera.setYaw(yaw);
   window.__setPitch = (pitch) => followCamera.setPitch(pitch);
 }
-chapterQuality = (preset) => chapter.setQuality(preset);
+chapterQuality = (preset) => { chapter.setQuality(preset); areaRunner.setQuality(preset); };
 
 // 切り替えは必ずここを通す。その状態で許されない操作なら false
 function go(action) {
@@ -299,7 +321,8 @@ function beginStory() {
   combatHud.setBeastVisible(false);
   autoDowngrade?.reset();
   clickSound();
-  chapter.start(storyProgress);
+  activeStory = storyProgress.area() === 'chapter1' ? chapter : areaRunner;
+  activeStory.start(storyProgress);
 }
 
 // 主人公・結晶獣・予告・画面・ロックオン・入力を最初に戻す
@@ -335,6 +358,7 @@ function beginFight() {
 
 function showTitle() {
   chapter.stop();
+  areaRunner.stop();
   app.classList.remove('story-mode');
   if (beast) combatHud.setBeastVisible(true);
   resetFight();
@@ -359,6 +383,13 @@ function leavePause(action) {
 }
 
 titleScreen.onStart(() => {
+  if (LEGACY_BATTLE) {
+    if (!go('start')) return;
+    titleScreen.hide();
+    sound.unlock();
+    beginFight();
+    return;
+  }
   if (!go('story')) return;
   titleScreen.hide();
   sound.unlock();
@@ -383,7 +414,7 @@ pauseMenu.on('retry', () => {
   // 物語ではチェックポイントから、結晶獣戦では最初から
   const inStory = state === 'storyPaused';
   if (!leavePause('retry')) return;
-  if (inStory) chapter.respawn();
+  if (inStory) activeStory.respawn();
   else beginFight();
 });
 pauseMenu.on('title', () => {
@@ -571,7 +602,7 @@ function animate(now) {
     }
     if (quality.debug) updateFps(rawDt);
     // ?debug&fast：遅い確認用ブラウザでも、ゲームの時間が実際の時間と同じ速さで進むようにする
-    chapter.update(FAST_DEBUG ? Math.min(rawDt, 0.3) : dt, now / 1000);
+    activeStory.update(FAST_DEBUG ? Math.min(rawDt, 0.3) : dt, now / 1000);
     return;
   }
   if (state === 'title') {
@@ -613,6 +644,7 @@ function resize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   post.setSize(window.innerWidth, window.innerHeight);
   chapter.resize(window.innerWidth, window.innerHeight);
+  areaRunner.resize(window.innerWidth, window.innerHeight);
   // 大きさを変えると絵が消えるので、止めている間も1回描き直す
   if (state === 'title' && titleScene) renderTitle();
   else post.render();
