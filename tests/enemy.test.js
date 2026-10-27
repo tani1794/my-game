@@ -180,3 +180,15 @@ test('攻撃の形：帯は向きの前に伸びる', () => {
   const band = attackShape({ shape: 'band', length: 6, width: 1 }, 0, 0, 0);
   expect(band).toMatchObject({ type: 'band', x: 0, z: 3, length: 6 });
 });
+
+test('狙い撃ち：予兆を出した時の主人公の場所に印が出て、あとで動いても追わない。糸を置く', () => {
+  const shot = { name: 'web', range: [2, 10], windup: 0.8, active: 0.2, recover: 1, cooldown: 5, damage: 4, shape: 'circle', radius: 1.4, aim: 'target', spawn: { type: 'web', radius: 1.4 } };
+  const enemy = createEnemy({ ...base, attacks: [shot], keepDistance: 4 }, post, fixed);
+  const frames = run(enemy, 0.5, { x: 0, z: 6 });
+  const windup = frames.find((f) => f.phase === 'windup');
+  expect(windup.telegraph[0]).toMatchObject({ type: 'circle', x: 0, z: 6 });
+  const later = run(enemy, 1, { x: 3, z: 6 });
+  const strike = later.find((f) => f.strikes.length);
+  expect(strike.strikes[0].shape).toMatchObject({ x: 0, z: 6 });
+  expect(strike.spawns).toEqual([{ type: 'web', radius: 1.4, x: 0, z: 6 }]);
+});

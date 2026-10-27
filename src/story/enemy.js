@@ -29,7 +29,7 @@ export function attackShape(attack, x, z, facing) {
 export function createEnemy(defInput, post, { random = Math.random } = {}) {
   const def = { ...DEFAULTS, ...defInput };
   let x; let z; let facing; let hp; let phase; let timer; let cooldowns; let attack; let height; let defense;
-  let buffedFor; let landed; let partsHp; let partsBroken; let flankSide; let dashBlocked; let woke; let struck; let attackCount;
+  let buffedFor; let landed; let partsHp; let partsBroken; let flankSide; let dashBlocked; let woke; let struck; let attackCount; let aim;
 
   function reset() {
     x = post.x;
@@ -51,6 +51,7 @@ export function createEnemy(defInput, post, { random = Math.random } = {}) {
     woke = false;
     struck = false;
     attackCount = 0;
+    aim = null;
   }
 
   const leash = post.leash ?? def.leash;
@@ -210,6 +211,8 @@ export function createEnemy(defInput, post, { random = Math.random } = {}) {
         dashBlocked = false;
         struck = false;
         attackCount += 1;
+        // 狙い撃ちは、予兆を出した時の主人公の場所に落ちる
+        aim = attack.aim === 'target' ? { x: player.x, z: player.z } : null;
       } else {
         // 近づく。回り込む敵は横へずれた点へ、距離を保つ敵は離れる
         let tx = player.x;
@@ -245,7 +248,7 @@ export function createEnemy(defInput, post, { random = Math.random } = {}) {
       if (attack.track !== false) turnToward(player.x, player.z, def.turnSpeed * 0.5 * dt);
       if (!visible() && !attack.blind) { phase = 'recover'; timer = 0; return frame({ events }); }
       if (def.flyer) height = Math.max(0.6, def.flyer.height * (1 - timer / attack.windup));
-      const telegraph = [attackShape(attack, x, z, facing)];
+      const telegraph = [shapeNow()];
       if (timer < attack.windup) return frame({ events, telegraph });
       phase = 'strike';
       timer = 0;
@@ -261,10 +264,10 @@ export function createEnemy(defInput, post, { random = Math.random } = {}) {
         if (moved < 0.5 && def.wallStun) { dashBlocked = true; events.push({ type: 'wallHit', id: post.id, x, z }); }
       }
       // 同じ攻撃は一度しか当たらない（key で runner が重ねて当てない）
-      strikes = [{ key: `${post.id}:${attackCount}`, shape: attackShape(attack, x, z, facing), damage: Math.round(attack.damage * (buffedFor > 0 ? 1.3 : 1)) }];
+      strikes = [{ key: `${post.id}:${attackCount}`, shape: shapeNow(), damage: Math.round(attack.damage * (buffedFor > 0 ? 1.3 : 1)) }];
       const first = !struck;
       struck = true;
-      const spawns = first && attack.spawn ? [{ ...attack.spawn, ...spawnPoint(attack, player) }] : [];
+      const spawns = first && attack.spawn ? [{ ...attack.spawn, ...spawnPoint(attack) }] : [];
       if (dashBlocked) {
         phase = 'stun';
         timer = -def.wallStun;
@@ -284,8 +287,13 @@ export function createEnemy(defInput, post, { random = Math.random } = {}) {
     return frame({ events });
   }
 
-  function spawnPoint(attackDef, player) {
-    if (attackDef.spawnAt === 'player') return { x: player.x, z: player.z };
+  function shapeNow() {
+    if (aim) return { type: 'circle', x: aim.x, z: aim.z, radius: attack.radius };
+    return attackShape(attack, x, z, facing);
+  }
+
+  function spawnPoint(attackDef) {
+    if (aim) return { x: aim.x, z: aim.z };
     return { x: x + Math.sin(facing) * (attackDef.spawnDistance ?? 3), z: z + Math.cos(facing) * (attackDef.spawnDistance ?? 3) };
   }
 
