@@ -508,5 +508,16 @@ export function createTelegraphs(scene, heightAt) {
     }
   }
 
-  return { sync, clear };
+  // エリアを離れるとき：印を場面から外して捨てる
+  function dispose() {
+    for (const slot of slots) {
+      scene.remove(slot.group);
+      slot.fill.geometry.dispose();
+      slot.edge.geometry.dispose();
+      slot.fill.material.dispose();
+      slot.edge.material.dispose();
+    }
+  }
+
+  return { sync, clear, dispose };
 }

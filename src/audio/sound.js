@@ -119,7 +119,7 @@ export function createSound({
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
-    source.playbackRate.value = 1 + (random() * 2 - 1) * PITCH_SPREAD;
+    source.playbackRate.value = (cue.rate ?? 1) * (1 + (random() * 2 - 1) * PITCH_SPREAD);
     source.connect(gain);
     // 鳴り終わったら切り離す（長い戦いで音の部品が溜まらないように）
     source.onended = () => {

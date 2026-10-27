@@ -105,6 +105,15 @@ test('高さは 0.94〜1.06 の範囲でずらす', async () => {
   }
 });
 
+test('rate で音の高さを指定できる（共鳴器の低い・中ほど・高い音）。ずらしは同じ幅', async () => {
+  const { sound, sources, ctx } = await ready();
+  ctx.currentTime += 1;
+  sound.play({ name: 'hit', group: 'ui', rate: 2 });
+  const last = started(sources).at(-1);
+  expect(last.playbackRate.value).toBeGreaterThanOrEqual(2 * 0.94);
+  expect(last.playbackRate.value).toBeLessThanOrEqual(2 * 1.06);
+});
+
 test('同じ音は 0.04 秒以内に重ねない', async () => {
   const { sound, sources, ctx } = await ready();
   sound.play({ name: 'hit', group: 'beast', distance: 1 });
