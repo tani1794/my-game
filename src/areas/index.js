@@ -2,6 +2,9 @@
 import { ROSE } from './rose/layout.js';
 import { createRoseRules } from './rose/rules.js';
 import { buildRose } from './rose/build.js';
+import { CAVE } from './cave/layout.js';
+import { createCaveRules } from './cave/rules.js';
+import { buildCave } from './cave/build.js';
 
 export const AREA_MODULES = {
   rose: {
@@ -14,5 +17,15 @@ export const AREA_MODULES = {
     },
     createRules: createRoseRules,
     build: buildRose,
+  },
+  cave: {
+    data: {
+      ...CAVE,
+      name: '蒼響の洞穴',
+      flagNames: ['lightOpen', 'planksSet', 'midStoneLit', 'evolved'],
+      indoor: () => false,
+    },
+    createRules: createCaveRules,
+    build: buildCave,
   },
 };

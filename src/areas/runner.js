@@ -27,7 +27,8 @@ const CRIT_CHANCE = 0.08;
 
 const MOODS = {
   rose: { fog: '#9aa3a6', density: 0.012, sky: '#d6dde0', ground: '#3d3f3a', hemi: 1.9, sun: '#f2efe6', sunIntensity: 2.2 },
-  tunnel: { fog: '#2f3638', density: 0.03, sky: '#8a949a', ground: '#25272a', hemi: 0.7, sun: '#f2efe6', sunIntensity: 0.4 },
+  tunnel: { fog: '#2f3638', density: 0.03, sky: '#8a949a', ground: '#25272a', hemi: 0.7, sun: '#f2efe6', sunIntensity: 0.4, lantern: 4 },
+  cave: { fog: '#101a22', density: 0.026, sky: '#6d8fae', ground: '#14181c', hemi: 0.9, sun: '#9fd8ff', sunIntensity: 0.25, lantern: 7 },
 };
 
 const smooth = (t) => {
@@ -56,6 +57,9 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
   sun.castShadow = preset.shadows;
   sun.shadow.mapSize.set(preset.shadowMapSize || 1024, preset.shadowMapSize || 1024);
   scene.add(sun, sun.target);
+  // 暗い所では、主人公のまわりだけ淡く照らす（洞窟・トンネル）
+  const lantern = new THREE.PointLight('#ffe2b8', 0, 9, 1.6);
+  scene.add(lantern);
 
   // ── 主人公（同じモデル・同じ行動）。武器の進化は剣の色と光だけ変える ──
   const player = createPlayer(scene);
@@ -310,6 +314,9 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
       case 'askCave':
         askCave();
         break;
+      case 'toCrystal':
+        travel('crystal', 'crystalEntry');
+        break;
       case 'evolveStart':
         sound.play({ name: 'enrage', group: 'beast' });
         break;
@@ -402,6 +409,8 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
     sun.intensity += (target.sunIntensity - sun.intensity) * 0.06;
     sun.position.copy(player.object.position).add(SUN_OFFSET);
     sun.target.position.copy(player.object.position);
+    lantern.intensity += ((target.lantern ?? 0) - lantern.intensity) * 0.06;
+    lantern.position.copy(player.object.position).add(headPoint.set(0, 2.2, 0));
   }
 
   function nearestGuard(range) {
