@@ -199,3 +199,70 @@ test('kill：保存で倒してある精鋭は、最初から倒れたまま', (
   expect(enemy.alive()).toBe(false);
   expect(run(enemy, 1, { x: 0, z: 1 }).at(-1).phase).toBe('dead');
 });
+
+test('崩れない盾：強攻撃でも崩れず、攻撃のあとの隙（盾を下げている）にだけ通る', () => {
+  const def = { ...base, guard: { breakStun: 1.5, unbreakable: true } };
+  const enemy = createEnemy(def, post, fixed);
+  run(enemy, 0.5, { x: 0, z: 5 });
+  const heavy = enemy.hit({ ...front, power: 2.2, from: { x: 0, z: 5 } });
+  expect(heavy.guardBreak).toBeFalsy();
+  expect(heavy.blocked).toBe(true);
+  // 攻撃させて、隙の間に斬る
+  let frame;
+  for (let i = 0; i < 300; i += 1) {
+    frame = enemy.update(1 / 60, { player: { x: 0, z: 1.5 }, canSee: see, step: free });
+    if (frame.phase === 'recover') break;
+  }
+  expect(frame.guarding).toBe(false);
+  expect(enemy.hit({ ...front, from: { x: 0, z: 1.5 } }).blocked).toBeFalsy();
+});
+
+test('続けて出す技：跳びかかりのあと、すぐ次の斬りの予兆に入る', () => {
+  const leap = { name: 'leap', range: [0, 6], windup: 0.5, active: 0.3, recover: 0.2, cooldown: 4, damage: 10, shape: 'circle', radius: 1.5, dash: 8, next: 'slash' };
+  const slash = { name: 'slash', range: [99, 100], windup: 0.3, active: 0.2, recover: 1.5, cooldown: 1, damage: 8, shape: 'sector', radius: 2 };
+  const enemy = createEnemy({ ...base, attacks: [leap, slash] }, post, fixed);
+  const frames = run(enemy, 3, { x: 0, z: 4 });
+  const names = frames.filter((f) => f.phase === 'windup').map((f) => f.attackName);
+  expect(names).toContain('leap');
+  expect(names).toContain('slash');
+  const leapEnd = frames.findIndex((f, i) => i > 0 && frames[i - 1].attackName === 'leap' && f.attackName === 'slash');
+  expect(leapEnd).toBeGreaterThan(0);
+  // 跳びかかりと斬りの間に、chase をはさまない
+  expect(frames.slice(0, leapEnd).some((f, i) => i > 0 && f.phase === 'chase' && frames[i - 1].phase === 'strike')).toBe(false);
+});
+
+test('ばらまく技：主人公のまわりに、予兆の円がいくつも出て、そのまま落ちる（すき間が安全）', () => {
+  const snow = { name: 'snow', range: [0, 12], windup: 1, active: 0.2, recover: 1, cooldown: 6, damage: 20, shape: 'circle', radius: 1.6, scatter: { count: 6, spread: 5 } };
+  const enemy = createEnemy({ ...base, attacks: [snow] }, post, { random: (() => { let n = 0; return () => ((n += 0.37) % 1); })() });
+  const frames = run(enemy, 2, { x: 0, z: 6 });
+  const windup = frames.find((f) => f.phase === 'windup');
+  expect(windup.telegraph).toHaveLength(6);
+  for (const shape of windup.telegraph) expect(Math.hypot(shape.x - 0, shape.z - 6)).toBeLessThanOrEqual(5.01);
+  const strike = frames.find((f) => f.strikes.length);
+  expect(strike.strikes).toHaveLength(6);
+});
+
+test('wake：眠っている（隠れている）ボスを、登場の合図で起こす', () => {
+  const enemy = createEnemy({ ...base, startHidden: true, ambush: 0 }, post, fixed);
+  expect(run(enemy, 1, { x: 0, z: 2 }).at(-1).phase).toBe('hidden');
+  enemy.wake();
+  expect(run(enemy, 0.1, { x: 0, z: 2 }).at(-1).phase).toBe('awaken');
+});
+
+test('怒り：体力が半分を切ると、予兆が短くなる（frame に enraged）', () => {
+  const slow = { ...swipe, windup: 1 };
+  const def = { ...base, hp: 1000, superArmor: true, attacks: [slow], enrage: { below: 0.5, tempo: 0.7 } };
+  const measure = (enemy) => {
+    const frames = run(enemy, 4, { x: 0, z: 1.5 });
+    const start = frames.findIndex((f) => f.phase === 'windup');
+    const end = frames.findIndex((f, i) => i > start && f.phase === 'strike');
+    return { seconds: (end - start) / 60, enraged: frames.at(-1).enraged };
+  };
+  const calm = measure(createEnemy(def, post, fixed));
+  const angry = createEnemy(def, post, fixed);
+  angry.hit({ attack: 600, power: 1, from: { x: 0, z: 1 } });
+  const fast = measure(angry);
+  expect(calm.enraged).toBe(false);
+  expect(fast.enraged).toBe(true);
+  expect(fast.seconds).toBeCloseTo(calm.seconds * 0.7, 1);
+});

@@ -373,7 +373,7 @@ export async function createFoeViews(scene, posts, defs, heightAt, { load = load
       view.object.rotation.y = frame.facing;
       if (view.mixer) {
         const attack = view.def.attacks.find((a) => a.name === frame.attackName);
-        const scale = frame.phase === 'windup' && attack ? 0.8 / attack.windup : 1;
+        const scale = frame.phase === 'windup' && attack ? 0.8 / (frame.windupTime || attack.windup) : 1;
         play(view, humanoidAnimation(frame), scale);
         view.mixer.update(dt);
       } else {
@@ -395,7 +395,7 @@ export async function createFoeViews(scene, posts, defs, heightAt, { load = load
       // 予兆：攻撃の形を足もとに、溜まるほど広がる
       const attack = view.def.attacks.find((a) => a.name === frame.attackName);
       if (frame.phase === 'windup' && frame.telegraph.length && attack) {
-        view.telegraphs.sync({ shapes: frame.telegraph, progress: frame.timer / attack.windup }, frame.buffed);
+        view.telegraphs.sync({ shapes: frame.telegraph, progress: frame.timer / (frame.windupTime || attack.windup) }, frame.buffed || frame.enraged);
       } else {
         view.telegraphs.clear();
       }

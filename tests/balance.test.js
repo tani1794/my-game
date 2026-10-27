@@ -1,6 +1,8 @@
 import { test, expect } from 'vitest';
 import { simulateFight } from './helpers/bot.js';
 import { VERGRAS } from '../src/areas/crystal/boss.js';
+import { simulateFoeFight } from './helpers/foeBot.js';
+import { FROST_FOES } from '../src/areas/frost/foes.js';
 
 const median = (values) => {
   const sorted = [...values].sort((a, b) => a - b);
@@ -28,6 +30,16 @@ test('共鳴の王座（ヴェルグラス）：誓剣ルーメンで20戦、勝
   const wins = results.filter((r) => r.outcome === 'won');
   const medianWinSeconds = Math.round(median(wins.map((r) => r.time)));
   console.info('vergras', JSON.stringify({ wins: wins.length, medianWinSeconds }));
+  expect(wins.length / results.length).toBeGreaterThanOrEqual(0.55);
+  expect(medianWinSeconds).toBeGreaterThanOrEqual(240);
+  expect(medianWinSeconds).toBeLessThanOrEqual(360);
+}, 180000);
+
+test('白角の静庭（イスヴァル）：誓剣ルーメンで20戦、勝った戦いの時間の中央値が4〜6分', () => {
+  const results = Array.from({ length: 20 }, (_, i) => simulateFoeFight(FROST_FOES.isval, i + 1));
+  const wins = results.filter((r) => r.outcome === 'won');
+  const medianWinSeconds = Math.round(median(wins.map((r) => r.time)));
+  console.info('isval', JSON.stringify({ wins: wins.length, medianWinSeconds }));
   expect(wins.length / results.length).toBeGreaterThanOrEqual(0.55);
   expect(medianWinSeconds).toBeGreaterThanOrEqual(240);
   expect(medianWinSeconds).toBeLessThanOrEqual(360);

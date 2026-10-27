@@ -83,3 +83,69 @@ test('当たり判定の円は、生きていて同じ高さの敵だけ', () =>
   const foes = createFoes([{ id: 'a', type: 'grunt', x: 0, z: 1, y: 0 }, { id: 'b', type: 'grunt', x: 5, z: 1, y: 8 }], defs);
   expect(foes.colliders(0).map((c) => c.x)).toEqual([0]);
 });
+
+const mirror = {
+  kind: 'mirror', hp: 300, defense: 0, awaken: 0.1, keepDistance: 3,
+  attacks: [{ name: 'split', range: [0, 12], windup: 0.4, active: 0.1, recover: 1, cooldown: 30, damage: 0, shape: 'circle', radius: 0.1, spawn: { type: 'clone', count: 2, life: 4 } }],
+  clone: { kind: 'mirror', hp: 1, defense: 0, awaken: 0.1, attacks: [swipe], footprints: false },
+};
+const walls = {
+  kind: 'stag', hp: 500, defense: 0, awaken: 0.1,
+  attacks: [{ name: 'wall', range: [0, 20], windup: 0.4, active: 0.1, recover: 1, cooldown: 30, damage: 0, shape: 'circle', radius: 0.1, aim: 'target', spawn: { type: 'wall', length: 6, life: 3 } }],
+};
+const frost = {
+  kind: 'breath', hp: 100, defense: 0, awaken: 0.1, keepDistance: 5,
+  attacks: [{ name: 'blizzard', range: [2, 12], windup: 0.4, active: 0.1, recover: 1, cooldown: 30, damage: 0, shape: 'circle', radius: 3, aim: 'target', spawn: { type: 'blizzard', radius: 3, life: 3 } }],
+};
+
+test('分身：本体のまわりに現れ、一太刀で消え、時間がたつと消える。本体は残る', () => {
+  const foes = createFoes([{ id: 'm', type: 'mirror', x: 0, z: 0, y: 0 }], { mirror });
+  run(foes, 1, { x: 0, z: 6, y: 0 });
+  const clones = foes.list().filter((e) => e.id.startsWith('m-clone'));
+  expect(clones).toHaveLength(2);
+  const c = clones[0].position();
+  const results = foes.swordHit(sword(c.x, c.z - 1, 0), { attack: 10, power: 1, critical: false, y: 0 });
+  expect(results.find((r) => r.id === clones[0].id).dead).toBe(true);
+  // 分身を倒しても、倒した記録（defeated）には入らない
+  expect(foes.takeDefeated()).toEqual([]);
+  run(foes, 5, { x: 0, z: 30, y: 0 });
+  expect(foes.list().map((e) => e.id)).toEqual(['m']);
+});
+
+test('分身の frame には、もとの敵の印（cloneOf）が付く（見た目で影と足跡を消す）', () => {
+  const foes = createFoes([{ id: 'm', type: 'mirror', x: 0, z: 0, y: 0 }], { mirror });
+  const outs = run(foes, 1, { x: 0, z: 6, y: 0 });
+  const frame = outs.at(-1).frames.find((f) => f.id.startsWith('m-clone'));
+  expect(frame.cloneOf).toBe('m');
+});
+
+test('氷の壁：狙った場所に立ち、当たり判定になり、時間がたつと消える', () => {
+  const foes = createFoes([{ id: 's', type: 'stag', x: 0, z: 0, y: 0 }], { stag: walls });
+  run(foes, 0.8, { x: 0, z: 8, y: 0 });
+  expect(foes.walls()).toHaveLength(1);
+  const boxes = foes.wallColliders(0);
+  expect(boxes[0]).toMatchObject({ type: 'box', x: 0, z: 8, hx: 3 });
+  run(foes, 4, { x: 0, z: 8, y: 0 });
+  expect(foes.walls()).toHaveLength(0);
+});
+
+test('吹雪：主人公の足もとに起き、中では少し遅くなる', () => {
+  const foes = createFoes([{ id: 'b', type: 'breath', x: 0, z: 0, y: 0 }], { breath: frost });
+  run(foes, 0.8, { x: 0, z: 8, y: 0 });
+  expect(foes.hazards().some((h) => h.kind === 'blizzard')).toBe(true);
+  expect(foes.slowAt(0, 8, 0)).toBeCloseTo(0.75);
+});
+
+test('reset：分身・壁・吹雪は消える', () => {
+  const foes = createFoes([{ id: 'm', type: 'mirror', x: 0, z: 0, y: 0 }, { id: 's', type: 'stag', x: 4, z: 0, y: 0 }], { mirror, stag: walls });
+  run(foes, 1, { x: 0, z: 6, y: 0 });
+  foes.reset(() => false);
+  expect(foes.list().map((e) => e.id)).toEqual(['m', 's']);
+  expect(foes.walls()).toHaveLength(0);
+});
+
+test('wake：隠れているボスを起こす', () => {
+  const foes = createFoes([{ id: 'boss', type: 'sleeper', x: 0, z: 0, y: 0 }], { sleeper: { kind: 'sleeper', hp: 100, awaken: 0.1, startHidden: true, ambush: 0, attacks: [swipe] } });
+  foes.wake('boss');
+  expect(run(foes, 0.5, { x: 0, z: 2, y: 0 }).at(-1).frames[0].phase).not.toBe('hidden');
+});

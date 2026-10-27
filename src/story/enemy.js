@@ -29,7 +29,7 @@ export function attackShape(attack, x, z, facing) {
 export function createEnemy(defInput, post, { random = Math.random } = {}) {
   const def = { ...DEFAULTS, ...defInput };
   let x; let z; let facing; let hp; let phase; let timer; let cooldowns; let attack; let height; let defense;
-  let buffedFor; let landed; let partsHp; let partsBroken; let flankSide; let dashBlocked; let woke; let struck; let attackCount; let aim;
+  let buffedFor; let landed; let partsHp; let partsBroken; let flankSide; let dashBlocked; let woke; let struck; let attackCount; let aim; let scattered;
 
   function reset() {
     x = post.x;
@@ -52,6 +52,7 @@ export function createEnemy(defInput, post, { random = Math.random } = {}) {
     struck = false;
     attackCount = 0;
     aim = null;
+    scattered = null;
   }
 
   const leash = post.leash ?? def.leash;
@@ -85,7 +86,7 @@ export function createEnemy(defInput, post, { random = Math.random } = {}) {
     const front = Math.abs(wrap(fromAngle - facing)) < (def.frontArmor?.angle ?? 0);
     const guarding = shieldUp() && Math.abs(wrap(fromAngle - facing)) < Math.PI / 2;
     // 盾は強攻撃（倍率2以上）で崩れる
-    if (guarding && power >= 2) {
+    if (guarding && power >= 2 && !def.guard.unbreakable) {
       const damage = computeDamage({ attack: attackStat, power, defense, critical });
       hp = Math.max(0, hp - damage);
       if (hp <= 0) { phase = 'dead'; timer = 0; return { damage, dead: true, guardBreak: true }; }
@@ -136,13 +137,17 @@ export function createEnemy(defInput, post, { random = Math.random } = {}) {
     return best;
   }
 
+  // 怒り：体力が一定を切ると、予兆と次の攻撃までの間が短くなる
+  const enraged = () => Boolean(def.enrage) && hp < def.hp * def.enrage.below;
+  const tempo = () => (enraged() ? def.enrage.tempo : 1);
+
   function frame(extra = {}) {
     return {
       id: post.id, kind: def.kind, x, z, height, facing, hp, maxHp: def.hp, phase, timer,
       telegraph: [], strikes: [], spawns: [], buffs: [], events: [],
       buffed: buffedFor > 0, guarding: shieldUp(),
       exposed: Boolean(def.weakParts && phase === 'recover' && partsBroken < partsHp.length),
-      partsBroken, attackName: attack?.name ?? null, ...extra,
+      partsBroken, attackName: attack?.name ?? null, enraged: enraged(), windupTime: attack ? attack.windup * tempo() : 0, ...extra,
     };
   }
 
@@ -204,15 +209,7 @@ export function createEnemy(defInput, post, { random = Math.random } = {}) {
       turnToward(player.x, player.z, def.turnSpeed * dt);
       const index = chooseAttack(distance, allies);
       if (index >= 0) {
-        attack = def.attacks[index];
-        cooldowns[index] = attack.cooldown ?? 1;
-        phase = attack.buff ? 'channel' : 'windup';
-        timer = 0;
-        dashBlocked = false;
-        struck = false;
-        attackCount += 1;
-        // 狙い撃ちは、予兆を出した時の主人公の場所に落ちる
-        aim = attack.aim === 'target' ? { x: player.x, z: player.z } : null;
+        beginAttack(index, player);
       } else {
         // 近づく。回り込む敵は横へずれた点へ、距離を保つ敵は離れる
         let tx = player.x;
@@ -248,8 +245,8 @@ export function createEnemy(defInput, post, { random = Math.random } = {}) {
       if (attack.track !== false) turnToward(player.x, player.z, def.turnSpeed * 0.5 * dt);
       if (!visible() && !attack.blind) { phase = 'recover'; timer = 0; return frame({ events }); }
       if (def.flyer) height = Math.max(0.6, def.flyer.height * (1 - timer / attack.windup));
-      const telegraph = [shapeNow()];
-      if (timer < attack.windup) return frame({ events, telegraph });
+      const telegraph = shapesNow();
+      if (timer < attack.windup * tempo()) return frame({ events, telegraph });
       phase = 'strike';
       timer = 0;
     }
@@ -264,7 +261,8 @@ export function createEnemy(defInput, post, { random = Math.random } = {}) {
         if (moved < 0.5 && def.wallStun) { dashBlocked = true; events.push({ type: 'wallHit', id: post.id, x, z }); }
       }
       // 同じ攻撃は一度しか当たらない（key で runner が重ねて当てない）
-      strikes = [{ key: `${post.id}:${attackCount}`, shape: shapeNow(), damage: Math.round(attack.damage * (buffedFor > 0 ? 1.3 : 1)) }];
+      const damage = Math.round(attack.damage * (buffedFor > 0 ? 1.3 : 1));
+      strikes = shapesNow().map((shape) => ({ key: `${post.id}:${attackCount}`, shape, damage }));
       const first = !struck;
       struck = true;
       const spawns = first && attack.spawn ? [{ ...attack.spawn, ...spawnPoint(attack) }] : [];
@@ -274,6 +272,12 @@ export function createEnemy(defInput, post, { random = Math.random } = {}) {
         return frame({ events, strikes: [], spawns });
       }
       if (timer < attack.active) return frame({ events, strikes: first || attack.continuous ? strikes : [], spawns });
+      // 続けて出す技は、隙をはさまずに次の予兆へ
+      const next = attack.next ? def.attacks.findIndex((a) => a.name === attack.next) : -1;
+      if (next >= 0) {
+        beginAttack(next, player);
+        return frame({ events, telegraph: shapesNow() });
+      }
       phase = 'recover';
       timer = 0;
       if (def.flyer) { landed = attack.landAfter ?? 1.6; height = 0; }
@@ -287,9 +291,32 @@ export function createEnemy(defInput, post, { random = Math.random } = {}) {
     return frame({ events });
   }
 
-  function shapeNow() {
-    if (aim) return { type: 'circle', x: aim.x, z: aim.z, radius: attack.radius };
-    return attackShape(attack, x, z, facing);
+  function beginAttack(index, player) {
+    attack = def.attacks[index];
+    cooldowns[index] = (attack.cooldown ?? 1) * tempo();
+    phase = attack.buff ? 'channel' : 'windup';
+    timer = 0;
+    dashBlocked = false;
+    struck = false;
+    attackCount += 1;
+    // 狙い撃ちは、予兆を出した時の主人公の場所に落ちる
+    aim = attack.aim === 'target' ? { x: player.x, z: player.z } : null;
+    // ばらまく技：主人公のまわりに、いくつもの円（ひとつは足もと。すき間が安全）
+    scattered = null;
+    if (attack.scatter) {
+      scattered = [{ type: 'circle', x: player.x, z: player.z, radius: attack.radius }];
+      for (let i = 1; i < attack.scatter.count; i += 1) {
+        const a = random() * Math.PI * 2;
+        const r = attack.scatter.spread * Math.sqrt(random());
+        scattered.push({ type: 'circle', x: player.x + Math.sin(a) * r, z: player.z + Math.cos(a) * r, radius: attack.radius });
+      }
+    }
+  }
+
+  function shapesNow() {
+    if (scattered) return scattered;
+    if (aim) return [{ type: 'circle', x: aim.x, z: aim.z, radius: attack.radius }];
+    return [attackShape(attack, x, z, facing)];
   }
 
   function spawnPoint(attackDef) {
@@ -302,6 +329,13 @@ export function createEnemy(defInput, post, { random = Math.random } = {}) {
     buffedFor = Math.max(buffedFor, seconds);
   }
 
+  // 登場の合図で起こす（隠れて・眠って待っているボス）
+  function wake() {
+    if (phase !== 'hidden' && phase !== 'dormant') return;
+    phase = 'awaken';
+    timer = 0;
+  }
+
   function kill() {
     hp = 0;
     phase = 'dead';
@@ -310,7 +344,7 @@ export function createEnemy(defInput, post, { random = Math.random } = {}) {
 
   reset();
   return {
-    id: post.id, def, update, hit, reset, buff, kill, position,
+    id: post.id, def, update, hit, reset, buff, kill, wake, position,
     alive: () => phase !== 'dead',
     hp: () => hp,
     hidden: () => phase === 'hidden',
