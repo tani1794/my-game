@@ -192,3 +192,10 @@ test('狙い撃ち：予兆を出した時の主人公の場所に印が出て�
   expect(strike.strikes[0].shape).toMatchObject({ x: 0, z: 6 });
   expect(strike.spawns).toEqual([{ type: 'web', radius: 1.4, x: 0, z: 6 }]);
 });
+
+test('kill：保存で倒してある精鋭は、最初から倒れたまま', () => {
+  const enemy = createEnemy(base, post, fixed);
+  enemy.kill();
+  expect(enemy.alive()).toBe(false);
+  expect(run(enemy, 1, { x: 0, z: 1 }).at(-1).phase).toBe('dead');
+});

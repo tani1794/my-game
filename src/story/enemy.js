@@ -302,9 +302,15 @@ export function createEnemy(defInput, post, { random = Math.random } = {}) {
     buffedFor = Math.max(buffedFor, seconds);
   }
 
+  function kill() {
+    hp = 0;
+    phase = 'dead';
+    timer = 0;
+  }
+
   reset();
   return {
-    id: post.id, def, update, hit, reset, buff, position,
+    id: post.id, def, update, hit, reset, buff, kill, position,
     alive: () => phase !== 'dead',
     hidden: () => phase === 'hidden',
     awake: () => woke,
