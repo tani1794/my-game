@@ -109,6 +109,7 @@ export async function buildCrystal(scene, materials, { lite = false } = {}) {
   const occluders = [];
   const random = mulberry32(331);
   const owned = new Set();
+  const textures = [];
   const own = (material) => { owned.add(material); return material; };
 
   const rockFloor = own(materials.stone.clone());
@@ -482,7 +483,9 @@ export async function buildCrystal(scene, materials, { lite = false } = {}) {
     }
     shape.position.set(x, TERRACE + 2.4, z);
     root.add(shape);
-    const plaque = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), own(new THREE.MeshBasicMaterial({ map: linesMark(r.lines), transparent: true, color: '#cfe8f0' })));
+    const lines = linesMark(r.lines);
+    textures.push(lines);
+    const plaque = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), own(new THREE.MeshBasicMaterial({ map: lines, transparent: true, color: '#cfe8f0' })));
     plaque.position.set(x, TERRACE + 0.65, z + 1.01);
     root.add(plaque);
     resonatorViews[id] = { shape, material, lit: false, pulse: 0, pitch: r.pitch };
@@ -588,7 +591,7 @@ export async function buildCrystal(scene, materials, { lite = false } = {}) {
     orun.group.position.set(spot.x, spot.y, spot.z);
     orun.group.rotation.y = spot.facing;
     root.add(orun.group);
-    owned.add(orun.ghost);
+    orun.group.traverse((part) => { if (part.material) owned.add(part.material); });
     return orun;
   });
 
@@ -713,10 +716,13 @@ export async function buildCrystal(scene, materials, { lite = false } = {}) {
       orun.ghost.opacity = 0.45 + 0.12 * Math.sin(time * 3.1);
       orun.light.intensity = 1.6 + 0.4 * Math.sin(time * 7);
     }
+    // 斬って壊した物は、その場で消す（印は runner が壊した瞬間に立てる）
+    for (const [flag, view] of Object.entries(webViews)) view.visible = !flags[flag];
+    for (const [flag, view] of Object.entries(winchCrystals)) view.visible = !flags[flag];
     loosePlate.visible = !flags.plateFound;
     plateGlow.intensity = flags.plateFound ? 0 : 1.6 + 0.6 * Math.sin(time * 3);
     entryStone.setActive(true);
-    midStone.setActive(Boolean(flags.midStoneLit));
+    midStone.setActive(Boolean(flags.crystalMidLit));
     gateStone.setActive(Boolean(flags.gateStoneLit));
     afterStone.setActive(Boolean(flags.vergrasDefeated));
     for (const stone of [entryStone, midStone, gateStone, afterStone]) stone.update(time);
@@ -726,7 +732,7 @@ export async function buildCrystal(scene, materials, { lite = false } = {}) {
     scene.remove(root);
     root.traverse((object) => { object.geometry?.dispose(); });
     for (const material of owned) material.dispose();
-    for (const texture of [arrowMark, tabletMark, fallTexture]) texture.dispose();
+    for (const texture of [arrowMark, tabletMark, fallTexture, ...textures]) texture.dispose();
   }
 
   return { root, occluders, applyState, handleAction, update, dispose };

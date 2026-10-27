@@ -62,3 +62,10 @@ test('中間の碑で保存、水門で渡り板が定位置へ、出口で晶�
   expect(sluice.out.objective).toBe(CAVE_OBJECTIVES.cross);
   expect(run(director, 1, { zones: ['vista'] }).actions).toContain('toCrystal');
 });
+
+test('倒れて戻ると、合わせ途中の反射器の向きは最初（南）に戻る（見た目と合わせる）', () => {
+  const { director, rules } = enterCave();
+  run(director, 1, { interact: 'reflector' });
+  director.respawn();
+  expect(rules.reflector()).toBe(2);
+});

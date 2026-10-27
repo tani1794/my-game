@@ -82,6 +82,8 @@ export function createCaveRules() {
     objectiveFor: caveObjective,
     interactablesFor: caveInteractables,
     reflector: () => reflector,
+    // 倒れて戻ったとき：合わせ途中の向きは最初に戻す（見た目も最初に戻るため）
+    respawn() { reflector = REFLECTOR_START; },
     begin: ({ play }) => {
       play('arrive');
       return { control: true };

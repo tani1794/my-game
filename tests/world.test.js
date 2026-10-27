@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest';
-import { AREAS, AREA_ORDER, areaOf, isCheckpoint } from '../src/story/world.js';
+import { AREAS, AREA_ORDER, areaOf, isCheckpoint, playableStart } from '../src/story/world.js';
 
 test('エリアの順番は固定', () => {
   expect(AREA_ORDER).toEqual(['chapter1', 'rose', 'cave', 'crystal', 'frost', 'ash', 'swords']);
@@ -19,4 +19,10 @@ test('各谷は、入口・中間・ボス前・撃破後の碑を持つ', () =>
   for (const id of ['crystal', 'frost', 'ash', 'swords']) {
     expect(AREAS[id].checkpoints).toEqual([`${id}Entry`, `${id}Mid`, `${id}Gate`, `${id}After`]);
   }
+});
+
+test('まだ作っていないエリアの保存は、作ってある最後のエリアの最後の碑から始める', () => {
+  expect(playableStart('frost', ['rose', 'cave', 'crystal'])).toEqual({ area: 'crystal', checkpoint: 'crystalAfter' });
+  expect(playableStart('swords', ['rose', 'cave'])).toEqual({ area: 'cave', checkpoint: 'caveMid' });
+  expect(playableStart('crystal', ['rose', 'cave', 'crystal'])).toBeNull();
 });

@@ -22,3 +22,12 @@ export function areaOf(checkpoint) {
 export function isCheckpoint(area, checkpoint) {
   return Boolean(AREAS[area]?.checkpoints.includes(checkpoint));
 }
+
+// まだ作っていないエリアの保存：作ってある最後のエリア（その前まで）の、最後の復帰地点から始める。
+// 作ってあるエリアなら null（そのまま始める）
+export function playableStart(area, available) {
+  if (available.includes(area)) return null;
+  const before = AREA_ORDER.slice(0, AREA_ORDER.indexOf(area)).filter((id) => available.includes(id));
+  const last = before.at(-1);
+  return last ? { area: last, checkpoint: AREAS[last].checkpoints.at(-1) } : null;
+}

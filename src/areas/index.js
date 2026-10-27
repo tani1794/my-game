@@ -37,7 +37,7 @@ export const AREA_MODULES = {
     data: {
       ...CRYSTAL,
       name: '晶冠峡谷',
-      flagNames: ['metOrun', 'webCut1', 'webCut2', 'plateFound', 'timberDown', 'plateFit', 'reflectorA', 'reflectorB', 'bridgeOn', 'midStoneLit', 'winchA', 'winchB', 'winchC', 'liftUp', 'crownGateOpen', 'gateStoneLit', 'vergrasDefeated', 'evolved'],
+      flagNames: ['metOrun', 'webCut1', 'webCut2', 'plateFound', 'timberDown', 'plateFit', 'reflectorA', 'reflectorB', 'bridgeOn', 'crystalMidLit', 'winchA', 'winchB', 'winchC', 'liftUp', 'crownGateOpen', 'gateStoneLit', 'vergrasDefeated', 'evolved'],
       // 旧坑道の中は、暗く閉じた空気にする
       indoor: (p) => p.y < -2,
       foes: CRYSTAL_FOES,

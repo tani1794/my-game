@@ -86,7 +86,7 @@ export const CRYSTAL_SCENES = {
   ],
   midStone: [
     { checkpoint: 'crystalMid' },
-    { set: 'midStoneLit' },
+    { set: 'crystalMidLit' },
     { toast: '共鳴の休み場（保存しました）' },
   ],
   song: [
@@ -195,9 +195,16 @@ export function createCrystalRules() {
     objectiveFor: crystalObjective,
     interactablesFor: crystalInteractables,
     reflector: (id) => reflectors[id],
-    begin: ({ play }) => {
+    begin: ({ play, progress }) => {
+      // 古い保存の直し：反射器が2基とも合っていれば、橋は出ている
+      if (progress.flag('reflectorA') && progress.flag('reflectorB') && !progress.flag('bridgeOn')) progress.set('bridgeOn');
       play('arrive');
       return { control: true };
+    },
+    // 倒れて戻ったとき：保存しない途中の状態（反射器の向き・共鳴器の順番）は最初から。見た目も最初に戻る
+    respawn() {
+      for (const [id, r] of Object.entries(REFLECTORS)) reflectors[id] = r.start;
+      nextResonator = 0;
     },
     react(signals, { play, progress, action }) {
       const zones = new Set(signals.zones);
@@ -240,7 +247,11 @@ export function createCrystalRules() {
         if (reflectors[id] === REFLECTORS[id].goal) {
           play(`${id}Done`, now);
           const other = id === 'reflectorA' ? 'reflectorB' : 'reflectorA';
-          if (progress.flag(other)) play('bridgeOn');
+          // 橋の印はすぐ保存する（台詞の途中で閉じても、橋が出ないまま詰まらないように）
+          if (progress.flag(other)) {
+            progress.set('bridgeOn');
+            play('bridgeOn');
+          }
         }
       }
       if (RESONATORS[id]) {

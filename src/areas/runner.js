@@ -13,6 +13,7 @@ import { createMaterials } from '../chapter/materials.js';
 import { createGuardViews } from '../chapter/guards.js';
 import { createConfirmDialog } from '../ui/confirmDialog.js';
 import { asset } from '../paths.js';
+import { playableStart } from '../story/world.js';
 import { createFoes } from './foes.js';
 import { createFoeViews } from './foeViews.js';
 import { createBossLogic } from './bossLogic.js';
@@ -229,13 +230,36 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
     battleMusic.stop();
   }
 
-  async function loadArea(id) {
+  // エリアの読み込みは一つずつ（重なると、片方が捨てた見た目をもう片方が使ってしまう）
+  let pendingLoad = Promise.resolve();
+  function loadArea(id) {
+    const run = pendingLoad.then(() => loadAreaNow(id));
+    pendingLoad = run.catch(() => {});
+    return run;
+  }
+
+  // 物語を始めるたび・やめるたびに変わる番号。待っている間に変わったら、残りの手順はしない
+  let session = 0;
+
+  function disposeObject(object) {
+    object.traverse((part) => {
+      part.geometry?.dispose();
+      for (const material of [part.material].flat()) {
+        if (!material) continue;
+        for (const value of Object.values(material)) if (value?.isTexture) value.dispose();
+        material.dispose();
+      }
+    });
+  }
+
+  async function loadAreaNow(id) {
     loading = true;
     built?.dispose();
     guardViews?.dispose();
     foeViews?.dispose();
     if (boss) {
       scene.remove(boss.view.object);
+      disposeObject(boss.view.object);
       boss.telegraphs.dispose();
       battleMusic.stop();
       showBossBar(false);
@@ -271,11 +295,16 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
   async function start(nextProgress) {
     progress = nextProgress;
     active = true;
+    const mine = ++session;
+    // まだ作っていないエリアの保存は、作ってある最後のエリアの最後の碑から
+    const fallback = playableStart(progress.area(), Object.keys(areas));
+    if (fallback) progress.enterArea(fallback.area, fallback.checkpoint);
     storyHud.setVisible(true);
     storyHud.setObjective(null);
     storyHud.clearSubtitle();
     await storyHud.fade('black', 0.01);
     await loadArea(progress.area());
+    if (mine !== session) return;
     placeAtCheckpoint();
     resetEnemies();
     swordEvolved = null;
@@ -289,6 +318,8 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
 
   function stop() {
     active = false;
+    session += 1;
+    respawning = false;
     confirm.close();
     battleMusic.stop();
     // 旧版の結晶獣戦の表示に戻す（物語の外では、体力バーは結晶獣戦が出す）
@@ -305,14 +336,17 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
 
   // 次のエリアへ（読み込みに失敗したら、元の安全な場所へ戻して、もう一度選べるようにする）
   async function travel(nextArea, checkpoint) {
-    if (loading) return;
+    if (loading || respawning) return;
+    const mine = session;
     respawning = true;
     await storyHud.fade('black', 0.8);
+    if (mine !== session) return;
     const before = { area: progress.area(), checkpoint: progress.checkpoint() };
     try {
       if (!areas[nextArea]) throw new Error(`エリア ${nextArea} はまだありません`);
       progress.enterArea(nextArea, checkpoint);
       await loadArea(nextArea);
+      if (mine !== session) return;
       placeAtCheckpoint();
       resetEnemies();
       director = createDirector(progress, area.createRules());
@@ -324,6 +358,7 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
       console.warn('次のエリアを読み込めませんでした', error);
       progress.enterArea(before.area, before.checkpoint);
       if (area?.data.id !== before.area) await loadArea(before.area);
+      if (mine !== session) return;
       placeAtCheckpoint();
       resetEnemies();
       director = createDirector(progress, area.createRules());
@@ -336,9 +371,11 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
   }
 
   async function respawn() {
-    if (respawning) return;
+    if (respawning || loading) return;
+    const mine = session;
     respawning = true;
     await storyHud.fade('black', 0.6);
+    if (mine !== session) return;
     director.respawn();
     readFlags();
     built.applyState(flags);
@@ -384,6 +421,8 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
     switch (name) {
       case 'rest':
         actions.reset();
+        // 振りの番号も最初からになるので、当たった記録も消す（消さないと休んだあと斬っても当たらない）
+        hitSwings.clear();
         resetEnemies();
         storyHud.toast('残響の碑で休んだ（体力が戻った）');
         sound.play({ name: 'crystal', group: 'ui' });

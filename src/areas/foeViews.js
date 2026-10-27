@@ -440,6 +440,7 @@ export async function createFoeViews(scene, posts, defs, heightAt, { load = load
       if (alive.has(id)) continue;
       scene.remove(mesh);
       mesh.geometry.dispose();
+      mesh.material.dispose();
       webs.delete(id);
     }
   }
@@ -463,10 +464,17 @@ export async function createFoeViews(scene, posts, defs, heightAt, { load = load
       view.telegraphs.dispose();
       scene.remove(view.object, view.chant, view.aura);
       view.mixer?.stopAllAction();
-      view.object.traverse((part) => { part.geometry?.dispose(); });
+      // 体の材質は view ごとに複製してあるので、ここで捨ててよい（骨格の形は読み込んだ模型と共有）
+      view.object.traverse((part) => { if (!part.isSkinnedMesh) part.geometry?.dispose(); });
+      for (const material of view.materials) material.dispose();
+      for (const ring of [view.chant, view.aura]) { ring.geometry.dispose(); ring.material.dispose(); }
     }
     views.clear();
-    for (const mesh of webs.values()) scene.remove(mesh);
+    for (const mesh of webs.values()) {
+      scene.remove(mesh);
+      mesh.geometry.dispose();
+      mesh.material.dispose();
+    }
     webs.clear();
   }
 

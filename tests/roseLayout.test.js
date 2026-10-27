@@ -1,4 +1,7 @@
-import { test, expect } from 'vitest';
+import { test, expect, vi } from 'vitest';
+
+// 地図を格子でたどるので、ほかのテストと並ぶと時間がかかる
+vi.setConfig({ testTimeout: 30000 });
 import { reachable } from '../src/areas/kit.js';
 import { ROSE } from '../src/areas/rose/layout.js';
 

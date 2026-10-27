@@ -279,6 +279,7 @@ export function createDirector(progress, rules = CHAPTER1_RULES) {
 
   // 倒れて復帰点へ戻るとき：流れている場面の結果だけを確定させ、字幕を消す
   function respawn() {
+    rules.respawn?.();
     if (current) flush(current);
     for (const scene of queue) flush(scene);
     current = null;

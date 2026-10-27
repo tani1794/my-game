@@ -88,6 +88,8 @@ test('共鳴の休み場で中間の保存。エリアが歌を思い出す', ()
   const { director, progress } = enterValley(['bridgeOn']);
   const { said } = run(director, 20, { zones: ['rest'] });
   expect(progress.checkpoint()).toBe('crystalMid');
+  // 洞穴の中間の碑とは別の印（洞穴で灯しても、谷の碑は灯らない）
+  expect(progress.flag('crystalMidLit')).toBe(true);
   expect(said).toContain('……私、ここで歌ったことがある。');
 });
 
@@ -163,4 +165,29 @@ test('仕掛けの途中で保存しても、読み込み直すと解いた所�
   expect(progress.flag('reflectorA')).toBe(true);
   expect(progress.flag('webCut1')).toBe(true);
   expect(progress.area()).toBe('crystal');
+});
+
+test('2基目の反射器が合った瞬間に、橋の印も保存される（台詞の途中で閉じても詰まらない）', () => {
+  const { director, progress } = enterValley(['metOrun', 'plateFound', 'plateFit', 'reflectorA']);
+  turn(director, 'reflectorB', 3);
+  expect(progress.flag('bridgeOn')).toBe(true);
+});
+
+test('反射器が2基とも合っているのに橋の印がない保存は、読み込むと橋が出る', () => {
+  const { progress } = enterValley(['reflectorA', 'reflectorB']);
+  expect(progress.flag('bridgeOn')).toBe(true);
+});
+
+test('倒れて戻ると、途中まで鳴らした共鳴器の順番は最初から（見た目と合わせる）', () => {
+  const { director } = enterValley(['bridgeOn', 'liftUp']);
+  turn(director, 'resonatorR', 1);
+  director.respawn();
+  expect(turn(director, 'resonatorL', 1)).not.toContain('resonatorLit:resonatorL');
+});
+
+test('倒れて戻ると、合わせ途中の反射器の向きは最初に戻る', () => {
+  const { director, rules } = enterValley(['metOrun']);
+  turn(director, 'reflectorA', 1);
+  director.respawn();
+  expect(rules.reflector('reflectorA')).toBe(2);
 });
