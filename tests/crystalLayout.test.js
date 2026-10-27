@@ -1,12 +1,15 @@
-import { test, expect } from 'vitest';
+import { test, expect, vi } from 'vitest';
 import { reachable } from '../src/areas/kit.js';
 import { CRYSTAL, ARENA } from '../src/areas/crystal/layout.js';
 import { CRYSTAL_FOES } from '../src/areas/crystal/foes.js';
 
+// 広い地図を格子でたどるので、ほかのテストと並ぶと時間がかかる
+vi.setConfig({ testTimeout: 30000 });
+
 const level = CRYSTAL.level;
 const at = (name) => CRYSTAL.checkpoints[name];
 const spot = (name) => CRYSTAL.interactables[name];
-const opened = { webCut1: true, webCut2: true };
+const opened = { webCut1: true, webCut2: true, timberDown: true };
 const bridged = { ...opened, reflectorA: true, reflectorB: true, bridgeOn: true };
 const lifted = { ...bridged, winchA: true, winchB: true, winchC: true, liftUp: true };
 const gated = { ...lifted, crownGateOpen: true };
@@ -16,10 +19,17 @@ test('入口から反射器Aと受光器には、最初から行ける', () => {
   expect(reachable(level, at('crystalEntry'), spot('receptor'), {})).toBe(true);
 });
 
-test('東の岩棚（反射器B）へは、結晶糸を2本切るまで行けない', () => {
-  expect(reachable(level, at('crystalEntry'), spot('reflectorB'), {})).toBe(false);
-  expect(reachable(level, at('crystalEntry'), spot('reflectorB'), { webCut1: true })).toBe(false);
+test('旧坑道：糸を2本切ると奥の部屋（鏡板）へ。支柱を倒すと東の岩棚（反射器B）へ出られる', () => {
+  expect(reachable(level, at('crystalEntry'), spot('mirrorPlate'), {})).toBe(false);
+  expect(reachable(level, at('crystalEntry'), spot('mirrorPlate'), { webCut1: true })).toBe(false);
+  expect(reachable(level, at('crystalEntry'), spot('mirrorPlate'), { webCut1: true, webCut2: true })).toBe(true);
+  expect(reachable(level, at('crystalEntry'), spot('reflectorB'), { webCut1: true, webCut2: true })).toBe(false);
   expect(reachable(level, at('crystalEntry'), spot('reflectorB'), opened)).toBe(true);
+});
+
+test('坑道からは、来た道（階段）でも岩棚の抜け道でも盆地へ戻れる', () => {
+  expect(reachable(level, spot('mirrorPlate'), { x: 0, z: 160, y: 0 }, { webCut1: true, webCut2: true })).toBe(true);
+  expect(reachable(level, spot('reflectorB'), { x: 0, z: 160, y: 0 }, opened)).toBe(true);
 });
 
 test('光の橋が出るまで、共鳴の休み場へは渡れない', () => {

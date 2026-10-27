@@ -312,6 +312,7 @@ export function createEnemy(defInput, post, { random = Math.random } = {}) {
   return {
     id: post.id, def, update, hit, reset, buff, kill, position,
     alive: () => phase !== 'dead',
+    hp: () => hp,
     hidden: () => phase === 'hidden',
     awake: () => woke,
     elite: Boolean(def.elite),

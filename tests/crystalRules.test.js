@@ -41,12 +41,30 @@ test('オルンの話を聞くと、目的が反射器に変わる', () => {
   expect(run(director, 0.2).out.objective).toBe(CRYSTAL_OBJECTIVES.orun);
   const { said, out } = run(director, 30, { interact: 'orunEntry' });
   expect(said.some((line) => line.includes('反射器が2基'))).toBe(true);
-  expect(out.objective).toBe(CRYSTAL_OBJECTIVES.reflectors);
+  expect(out.objective).toBe(CRYSTAL_OBJECTIVES.plate);
   expect(progress.flag('metOrun')).toBe(true);
 });
 
+test('東の反射器：鏡板がないうちは回せない。坑道で拾い、岩棚に戻るとはめ込まれる', () => {
+  const { director, progress } = enterValley(['metOrun']);
+  let out = run(director, 0.2).out;
+  expect(out.interactables).toContain('reflectorEmpty');
+  expect(out.interactables).not.toContain('reflectorB');
+  expect(run(director, 4, { interact: 'reflectorEmpty' }).said[0]).toContain('鏡板が外れて');
+  run(director, 14, { interact: 'mirrorPlate' });
+  expect(progress.flag('plateFound')).toBe(true);
+  expect(run(director, 0.2).out.objective).toBe(CRYSTAL_OBJECTIVES.reflectors);
+  const { actions } = run(director, 6, { interact: 'timber' });
+  expect(actions).toContain('pushTimber');
+  expect(progress.flag('timberDown')).toBe(true);
+  expect(run(director, 6, { zones: ['ledge'] }).actions).toContain('fitPlate');
+  out = run(director, 0.2).out;
+  expect(out.interactables).toContain('reflectorB');
+  expect(out.interactables).not.toContain('reflectorEmpty');
+});
+
 test('反射器は2基とも正しい向きにして、はじめて光の橋が出る', () => {
-  const { director, progress } = enterValley(['metOrun', 'webCut1', 'webCut2']);
+  const { director, progress } = enterValley(['metOrun', 'webCut1', 'webCut2', 'plateFound', 'plateFit']);
   // A：南 → 西 → 北 → 東（3回）
   turn(director, 'reflectorA', 3);
   run(director, 6);
@@ -138,7 +156,7 @@ test('ヴェルグラスを倒すと、撃破の記録・保存・エリアの�
 });
 
 test('仕掛けの途中で保存しても、読み込み直すと解いた所は残る', () => {
-  const { director, storage } = enterValley(['metOrun', 'webCut1', 'webCut2']);
+  const { director, storage } = enterValley(['metOrun', 'webCut1', 'webCut2', 'plateFound']);
   turn(director, 'reflectorA', 3);
   run(director, 6);
   const progress = createProgress(storage);

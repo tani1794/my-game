@@ -63,8 +63,14 @@ export function createBossLogic(boss) {
     frame = brain.update(0, { x: boss.start.x, z: boss.start.z + 10 });
   }
 
+  // 確認用（?debug）：体力を left まで減らす。最後の一撃は本当に斬って倒す
+  function weaken(left) {
+    if (frame.hp > left) brain.takeDamage(frame.hp - left);
+    frame = { ...frame, hp: Math.min(frame.hp, left) };
+  }
+
   return {
-    update, swordHit, reset,
+    update, swordHit, reset, weaken,
     start: () => { active = true; },
     active: () => active && !down,
     down: () => down,

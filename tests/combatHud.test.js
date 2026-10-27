@@ -20,6 +20,13 @@ test('結晶獣の体力バー：表示・幅・怒り状態', () => {
   expect(bar.classList.contains('enraged')).toBe(true);
 });
 
+test('ボスの名前を体力バーに出せる（共鳴の王座のヴェルグラス）', () => {
+  const { root, hud } = make();
+  expect(root.querySelector('.boss-bar-name').textContent).toBe('結晶獣');
+  hud.setBeastName('晶冠の守護獣ヴェルグラス');
+  expect(root.querySelector('.boss-bar-name').textContent).toBe('晶冠の守護獣ヴェルグラス');
+});
+
 test('勝ちの画面に時間 4:05、もう一度で onRetry が呼ばれる', () => {
   const { root, hud } = make();
   const retry = vi.fn();

@@ -68,6 +68,10 @@ export function createCombatHud(root) {
     bossBar.hidden = !visible;
   }
 
+  function setBeastName(name) {
+    root.querySelector('.boss-bar-name').textContent = name;
+  }
+
   function setBeast(hpRatio, enraged) {
     const ratio = Number.isFinite(hpRatio)
       ? Math.min(1, Math.max(0, hpRatio))
@@ -161,6 +165,7 @@ export function createCombatHud(root) {
 
   return {
     setBeastVisible,
+    setBeastName,
     setBeast,
     setReticle,
     showDamage,

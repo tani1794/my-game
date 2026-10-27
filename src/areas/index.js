@@ -5,6 +5,11 @@ import { buildRose } from './rose/build.js';
 import { CAVE } from './cave/layout.js';
 import { createCaveRules } from './cave/rules.js';
 import { buildCave } from './cave/build.js';
+import { CRYSTAL } from './crystal/layout.js';
+import { createCrystalRules } from './crystal/rules.js';
+import { buildCrystal } from './crystal/build.js';
+import { CRYSTAL_FOES } from './crystal/foes.js';
+import { VERGRAS } from './crystal/boss.js';
 
 export const AREA_MODULES = {
   rose: {
@@ -27,5 +32,18 @@ export const AREA_MODULES = {
     },
     createRules: createCaveRules,
     build: buildCave,
+  },
+  crystal: {
+    data: {
+      ...CRYSTAL,
+      name: '晶冠峡谷',
+      flagNames: ['metOrun', 'webCut1', 'webCut2', 'plateFound', 'timberDown', 'plateFit', 'reflectorA', 'reflectorB', 'bridgeOn', 'midStoneLit', 'winchA', 'winchB', 'winchC', 'liftUp', 'crownGateOpen', 'gateStoneLit', 'vergrasDefeated', 'evolved'],
+      // 旧坑道の中は、暗く閉じた空気にする
+      indoor: (p) => p.y < -2,
+      foes: CRYSTAL_FOES,
+      boss: { ...CRYSTAL.boss, ...VERGRAS },
+    },
+    createRules: createCrystalRules,
+    build: buildCrystal,
   },
 };
