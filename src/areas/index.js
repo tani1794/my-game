@@ -10,6 +10,10 @@ import { createCrystalRules } from './crystal/rules.js';
 import { buildCrystal } from './crystal/build.js';
 import { CRYSTAL_FOES } from './crystal/foes.js';
 import { VERGRAS } from './crystal/boss.js';
+import { FROST } from './frost/layout.js';
+import { createFrostRules } from './frost/rules.js';
+import { buildFrost } from './frost/build.js';
+import { FROST_FOES } from './frost/foes.js';
 
 export const AREA_MODULES = {
   rose: {
@@ -45,5 +49,17 @@ export const AREA_MODULES = {
     },
     createRules: createCrystalRules,
     build: buildCrystal,
+  },
+  frost: {
+    data: {
+      ...FROST,
+      name: '霜葬峡谷',
+      flagNames: ['metMirei', 'windGuard', 'sluiceThawed', 'frostMidLit', 'recordRead', 'drainOpen', 'duelistDown', 'windCalm', 'iceGateOpen', 'frostGateLit', 'isvalDefeated', 'evolved'],
+      indoor: () => false,
+      foes: FROST_FOES,
+      boss: { ...FROST.boss, name: FROST_FOES.isval.name },
+    },
+    createRules: createFrostRules,
+    build: buildFrost,
   },
 };

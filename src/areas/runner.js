@@ -37,6 +37,7 @@ const MOODS = {
   tunnel: { fog: '#2f3638', density: 0.03, sky: '#8a949a', ground: '#25272a', hemi: 0.7, sun: '#f2efe6', sunIntensity: 0.4, lantern: 4 },
   cave: { fog: '#101a22', density: 0.026, sky: '#6d8fae', ground: '#14181c', hemi: 0.9, sun: '#9fd8ff', sunIntensity: 0.25, lantern: 7 },
   crystal: { fog: '#8fb0c2', density: 0.0095, sky: '#d4ecf7', ground: '#3a4652', hemi: 1.7, sun: '#eef8ff', sunIntensity: 2.3 },
+  frost: { fog: '#c3d0d8', density: 0.013, sky: '#eef4f8', ground: '#7d8b95', hemi: 1.8, sun: '#f4f8ff', sunIntensity: 1.9 },
 };
 const RESONATE = { low: { rate: 0.6, shake: 0.15 }, mid: { rate: 1, shake: 0.35 }, high: { rate: 1.6, shake: 0.6 } };
 const RISE_TIME = 2;
@@ -136,7 +137,7 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
   let foes = null;
   let foeViews = null;
   let breakables = [];
-  let boss = null;      // { logic, view, telegraphs, data }
+  let boss = null;      // { logic, view, telegraphs, data }。共通の敵の頭脳のボスは { foe: true, logic, data }（見た目は foeViews）
   let bossRise = -1;    // 登場で立ち上がる途中（0〜1）。-1 は待機
   let tremor = 0;
   const battleMusic = createBattleMusic(sound);
@@ -217,13 +218,30 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
     root.classList.toggle('story-boss', visible);
   }
 
+  // 共通の敵の頭脳でできたボス（霜葬峡谷のイスヴァルなど）を、結晶獣のボスと同じ形で扱う
+  function foeBossLogic(id) {
+    const enemy = () => foes.list().find((e) => e.id === id);
+    const def = area.data.foes[area.data.enemies.find((e) => e.id === id).type];
+    return {
+      maxHp: def.hp,
+      radius: def.radius,
+      active: () => Boolean(enemy()?.alive() && !enemy().hidden()),
+      down: () => !enemy()?.alive(),
+      frame: () => ({ hp: enemy()?.hp() ?? 0, position: enemy()?.position() ?? { x: 0, z: 0 }, enraged: Boolean(def.enrage) && (enemy()?.hp() ?? 0) < def.hp * def.enrage.below }),
+      start: () => foes.wake(id),
+      reset: () => {},
+      weaken: (left) => api.weakenFoe(id, left),
+    };
+  }
+
   // ボス：倒れて戻ったら、待つ状態から（登場の演出は、王座に入り直すと流れる。スキップできる）
   function resetBoss() {
     if (!boss) return;
     boss.logic.reset();
-    boss.telegraphs.clear();
+    boss.telegraphs?.clear();
     const beaten = progress.defeated(boss.data.id);
-    boss.view.object.visible = !beaten;
+    if (boss.view) boss.view.object.visible = !beaten;
+    else foeViews?.reveal(boss.data.id, false);
     bossRise = -1;
     tremor = 0;
     showBossBar(false);
@@ -257,10 +275,12 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
     built?.dispose();
     guardViews?.dispose();
     foeViews?.dispose();
-    if (boss) {
+    if (boss?.view) {
       scene.remove(boss.view.object);
       disposeObject(boss.view.object);
       boss.telegraphs.dispose();
+    }
+    if (boss) {
       battleMusic.stop();
       showBossBar(false);
     }
@@ -281,7 +301,10 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
       foes = createFoes(foePosts, defs);
       foeViews = await createFoeViews(scene, foePosts, defs, (x, z, y) => level().heightAt(x, z, y, flags), { lite });
     }
-    if (area.data.boss) {
+    if (area.data.boss?.kind === 'foe') {
+      boss = { data: area.data.boss, foe: true, logic: foeBossLogic(area.data.boss.id) };
+      combatHud.setBeastName(area.data.boss.name);
+    } else if (area.data.boss) {
       const groundAt = (x, z) => level().heightAt(x, z, 0, flags);
       const view = await createBeast(scene, asset('models/beast.glb'), groundAt);
       boss = { data: area.data.boss, logic: createBossLogic(area.data.boss), view, telegraphs: createTelegraphs(scene, groundAt) };
@@ -436,9 +459,21 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
       case 'toFrost':
         travel('frost', 'frostEntry');
         break;
+      case 'toAsh':
+        travel('ash', 'ashEntry');
+        break;
+      case 'calmWind':
+      case 'memoryLight':
+        sound.play({ name: 'crystal', group: 'ui' });
+        break;
       case 'fitPlate':
         sound.play({ name: 'crystal', group: 'ui' });
         break;
+      case 'raiseShutters':
+      case 'thawSluice':
+      case 'drainWater':
+      case 'breakPortcullis':
+      case 'dropChain':
       case 'pushTimber':
       case 'bridgeForm':
       case 'raiseLift':
@@ -461,12 +496,14 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
         sound.play({ name: 'crystal', group: 'beast', rate: 0.8 });
         break;
       case 'bossRise':
-        if (boss) { bossRise = 0; boss.view.object.visible = true; }
+        if (boss?.view) { bossRise = 0; boss.view.object.visible = true; }
+        else if (boss) foeViews.reveal(boss.data.id);
         sound.play({ name: 'enrage', group: 'beast' });
         break;
       case 'bossReady':
         tremor = 0;
-        if (boss) { bossRise = 1; boss.view.object.visible = true; }
+        if (boss?.view) { bossRise = 1; boss.view.object.visible = true; }
+        else if (boss) foeViews.reveal(boss.data.id);
         break;
       case 'bossName':
         storyHud.showChapterTitle(boss?.data.name ?? '', 3);
@@ -585,7 +622,7 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
   // ボスを、ロックオン・向き直りの相手として扱う（衛兵・谷の敵と同じ形）
   const bossTarget = {
     id: 'boss',
-    alive: () => Boolean(boss?.logic.active()),
+    alive: () => Boolean(boss?.view && boss.logic.active()),
     position: () => boss.logic.frame().position,
   };
 
@@ -660,7 +697,7 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
         signals.broken.push(b.id);
       }
     }
-    if (boss) {
+    if (boss?.view) {
       const result = boss.logic.swordHit(sword, stat, boss.view.colliders);
       if (result) {
         landed = true;
@@ -683,7 +720,7 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
     const out = foes.update(dt, {
       player: { ...playerPos, y: p.y },
       canSee: sight,
-      stepFor: (y) => (pos, dir, distance) => stepPosition(pos, dir, distance, [...level().colliders(flags, y), { x: p.x, z: p.z, radius: 0.35 }], (x, z) => level().walkable(x, z, y, flags)),
+      stepFor: (y) => (pos, dir, distance) => stepPosition(pos, dir, distance, [...level().colliders(flags, y), ...foes.wallColliders(y), { x: p.x, z: p.z, radius: 0.35 }], (x, z) => level().walkable(x, z, y, flags)),
       hitPlayer: (damage) => hurtPlayer(damage),
     });
     signals.noticed.push(...out.noticed);
@@ -697,7 +734,7 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
     }
     for (const frameOf of out.frames) for (const event of frameOf.events) if (event.type === 'wallHit') followCamera.shake(0.5);
     signals.defeated.push(...foes.takeDefeated());
-    foeViews.update(dt, out.frames, time, foes.webs());
+    foeViews.update(dt, out.frames, time, { hazards: foes.hazards(), walls: foes.walls() });
   }
 
   // ボス：登場の間は立ち上がる動きだけ、戦いが始まったら頭脳を進める
@@ -706,6 +743,17 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
     if (tremor > 0) {
       tremor = Math.max(0, tremor - dt);
       followCamera.shake(0.12);
+    }
+    // 共通の頭脳のボス：動きと当たりは foes が進める。ここでは体力のバーと曲だけ
+    if (boss.foe) {
+      const f = boss.logic.frame();
+      if (boss.logic.active()) {
+        combatHud.setBeast(f.hp / boss.logic.maxHp, f.enraged);
+        battleMusic.update(f.hp / boss.logic.maxHp);
+      } else if (boss.logic.down() && root.classList.contains('story-boss')) {
+        showBossBar(false);
+      }
+      return;
     }
     const fighting = boss.logic.active() || boss.logic.down();
     const result = boss.logic.update(dt, playerDead ? { x: 1e4, z: 1e4 } : playerPos, (damage) => hurtPlayer(damage));
@@ -773,7 +821,8 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
     const world = level().colliders(flags, p.y);
     const guardCircles = guards.filter((g) => g.alive() && Math.abs(enemyPostY(g.id) - p.y) < 2).map((g) => ({ ...g.position(), radius: 0.45 }));
     if (foes) guardCircles.push(...foes.colliders(p.y));
-    if (boss?.view.object.visible && !boss.logic.down()) guardCircles.push(...boss.view.colliders);
+    if (boss?.view?.object.visible && !boss.logic.down()) guardCircles.push(...boss.view.colliders);
+    if (foes) guardCircles.push(...foes.wallColliders(p.y));
     player.drive(dt, frame, [...world, ...guardCircles], heightHere, walkableHere);
     const freed = pushOut(p, guardCircles);
     if (walkableHere(freed.x, freed.z)) {
@@ -887,7 +936,7 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
     scene.traverse((object) => { if (object.material) object.material.needsUpdate = true; });
   }
 
-  return {
+  const api = {
     start,
     stop,
     update,
@@ -909,7 +958,8 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
       enemy.hit({ attack: ((enemy.hp() - left) * (100 + enemy.def.defense)) / 100, power: 1, from: { x: p.x, z: p.z - 1 } });
     },
     view: (position, look) => { debugView = position ? { position, look } : null; },
-    debug: () => ({ scene, area: area?.data.id, player: player.object.position, out, progress, flags, attack: actions.attack(), hp: actions.hp(), guards: guards.map((g) => ({ id: g.id, ...g.position(), alive: g.alive() })), foes: foes?.list().map((e) => ({ id: e.id, kind: e.def.kind, ...e.position(), alive: e.alive(), height: e.height(), hp: e.hp() })) ?? [], breakables: breakables.map((b) => ({ id: b.id, left: b.left })), boss: boss ? { active: boss.logic.active(), down: boss.logic.down(), hp: boss.logic.frame().hp, ...boss.logic.frame().position, body: boss.view.colliders.map((c) => ({ ...c })) } : null }),
+    debug: () => ({ scene, area: area?.data.id, player: player.object.position, out, progress, flags, attack: actions.attack(), hp: actions.hp(), guards: guards.map((g) => ({ id: g.id, ...g.position(), alive: g.alive() })), foes: foes?.list().map((e) => ({ id: e.id, kind: e.def.kind, ...e.position(), alive: e.alive(), height: e.height(), hp: e.hp() })) ?? [], breakables: breakables.map((b) => ({ id: b.id, left: b.left })), boss: boss ? { active: boss.logic.active(), down: boss.logic.down(), hp: boss.logic.frame().hp, ...boss.logic.frame().position, body: boss.view ? boss.view.colliders.map((c) => ({ ...c })) : [{ ...boss.logic.frame().position, radius: boss.logic.radius }] } : null }),
     modalOpen: () => modalOpen,
   };
+  return api;
 }
