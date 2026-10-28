@@ -25,7 +25,9 @@ export const ROSE_FLOORS = [
   // 近道：庭園の東から入口へ（閂を外すまで閉じている）
   { id: 'shortcut', type: 'path', points: [[-22, 25, GARDEN_Y], [-15, 25, GARDEN_Y], [-12, 35, -1.6], [-9, 44, 0]], width: 2.6 },
   // C：西の排水通路（階段で下層へ。通路は排水するまで水の下）
-  { id: 'drainStairs', type: 'rect', x0: -54, x1: -48, z0: -6, z1: 4, y: LOW_Y, toY: GARDEN_Y, axis: 'z' },
+  // 階段の下は平らな踊り場（下層通路と同じ高さ）。坂の途中で東の通路へ曲がっても段差にならない
+  { id: 'drainStairs', type: 'rect', x0: -54, x1: -48, z0: -2, z1: 4, y: LOW_Y, toY: GARDEN_Y, axis: 'z' },
+  { id: 'drainLanding', type: 'rect', x0: -54, x1: -48, z0: -6, z1: -2, y: LOW_Y },
   { id: 'drainTunnel', type: 'path', points: [[-51, -4, LOW_Y], [-20, -4, LOW_Y], [0, -4, LOW_Y], [24, -4, LOW_Y]], width: 3.2, when: 'drained' },
   // D：東の巻き上げ機室（橋脚の中）
   { id: 'machine', type: 'rect', x0: 22, x1: 36, z0: -12, z1: 4, y: LOW_Y },

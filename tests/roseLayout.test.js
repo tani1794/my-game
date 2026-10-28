@@ -45,3 +45,14 @@ test('残響の碑（中央庭園・誓剣の門前）と復帰地点は、歩�
     expect(level.walkable(point.x, point.z, point.y ?? 0, flags)).toBe(true);
   }
 });
+
+test('排水の階段の下には平らな踊り場があり、通路と同じ高さでつながる（坂の途中で東へ曲がっても段差にならない）', () => {
+  const state = { drained: true };
+  for (const z of [-5.2, -4, -2.8]) {
+    // 階段（または踊り場）の東の端に立って、東の下層通路へ一歩出る
+    const here = ROSE.level.heightAt(-48.3, z, -6, state);
+    const next = ROSE.level.heightAt(-47.6, z, here, state);
+    expect(ROSE.level.walkable(-47.6, z, here, state), `z ${z}`).toBe(true);
+    expect(Math.abs(next - here), `z ${z}`).toBeLessThan(0.5);
+  }
+});

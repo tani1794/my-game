@@ -11,6 +11,9 @@ const DIRECTIONS = ['北', '東', '南', '西'];
 const PITCH = { low: '低い音', mid: '中ほどの音', high: '高い音' };
 const SHAKE = { low: 'かすかな震え', mid: 'はっきりした震え', high: '強い震え' };
 
+
+// 残響の碑：まだそこに保存していなければ、会話に割り込んですぐ保存する（会話は同じ行から続く）
+const SAVE_NOW = { once: false, urgent: true };
 export const CRYSTAL_OBJECTIVES = {
   orun: '結晶の光る人影に話を聞く',
   plate: '西の反射器を回し、旧坑道で東の反射器の鏡板を探す',
@@ -212,12 +215,12 @@ export function createCrystalRules() {
       if (zones.has('mine')) play('mine');
       if (zones.has('ledge') && progress.flag('plateFound') && !progress.flag('plateFit')) play('plateFit');
       if (zones.has('rest') && progress.flag('bridgeOn')) {
-        play('midStone', { once: false });
+        if (progress.checkpoint() !== 'crystalMid') play('midStone', SAVE_NOW);
         play('song');
       }
       if (zones.has('terrace') && progress.flag('liftUp')) play('terrace');
       if (zones.has('gate') && progress.flag('crownGateOpen')) {
-        play('gateStone', { once: false });
+        if (progress.checkpoint() !== 'crystalGate') play('gateStone', SAVE_NOW);
         play('gateWarn');
       }
       if (zones.has('arena') && progress.flag('crownGateOpen') && !progress.flag('vergrasDefeated') && !signals.bossActive) {

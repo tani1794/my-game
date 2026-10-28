@@ -33,7 +33,7 @@ const SWING_SOUND = {
 const CRIT_CHANCE = 0.08;
 
 const MOODS = {
-  rose: { fog: '#9aa3a6', density: 0.012, sky: '#d6dde0', ground: '#3d3f3a', hemi: 1.9, sun: '#f2efe6', sunIntensity: 2.2 },
+  rose: { fog: '#9aa3a6', density: 0.0095, sky: '#d6dde0', ground: '#3d3f3a', hemi: 1.9, sun: '#f2efe6', sunIntensity: 2.2 },
   tunnel: { fog: '#2f3638', density: 0.03, sky: '#8a949a', ground: '#25272a', hemi: 0.7, sun: '#f2efe6', sunIntensity: 0.4, lantern: 4 },
   cave: { fog: '#101a22', density: 0.026, sky: '#6d8fae', ground: '#14181c', hemi: 0.9, sun: '#9fd8ff', sunIntensity: 0.25, lantern: 7 },
   crystal: { fog: '#8fb0c2', density: 0.0095, sky: '#d4ecf7', ground: '#3a4652', hemi: 1.7, sun: '#eef8ff', sunIntensity: 2.3 },
@@ -597,7 +597,15 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
       camera.lookAt(...debugView.look);
       return;
     }
-    followCamera.update(player.object.position, dt, { limit: limitCamera, ground: (x, z) => Math.min(heightHere(x, z), py() + 0.5) });
+    // 地面：歩ける床と、エリアの地形（丘や斜面）のうち高い方より下へカメラを潜らせない
+    const terrainAt = built?.groundAt;
+    followCamera.update(player.object.position, dt, {
+      limit: limitCamera,
+      ground: (x, z) => {
+        const floor = Math.min(heightHere(x, z), py() + 0.5);
+        return terrainAt ? Math.max(floor, terrainAt(x, z) + 0.35) : floor;
+      },
+    });
   }
 
   // エリアの空気（霧と光）：エリアの mood と、トンネルの中かどうか

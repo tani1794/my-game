@@ -1,7 +1,7 @@
 // 第二章のエリアの登録。runner はここから、地図・決まり・見た目を受け取る。
 import { ROSE } from './rose/layout.js';
 import { createRoseRules } from './rose/rules.js';
-import { buildRose } from './rose/build.js';
+import { buildRose, ROSE_TOWER } from './rose/build.js';
 import { CAVE } from './cave/layout.js';
 import { createCaveRules } from './cave/rules.js';
 import { buildCave } from './cave/build.js';
@@ -21,8 +21,8 @@ export const AREA_MODULES = {
       ...ROSE,
       name: '白薔薇の迷宮橋',
       flagNames: ['drained', 'shortcutOpen', 'clampFreed', 'bridgeLowered', 'evolved', 'gardenStoneLit'],
-      // 下層通路と機室の中は、暗く閉じた空気にする
-      indoor: (p) => p.y < -6,
+      // 下層通路・機室・橋脚の塔の中（階段）は、暗く閉じた空気にする
+      indoor: (p) => p.y < -6 || (p.x > ROSE_TOWER.x0 && p.x < ROSE_TOWER.x1 && p.z > ROSE_TOWER.z0 && p.z < ROSE_TOWER.z1),
     },
     createRules: createRoseRules,
     build: buildRose,

@@ -89,3 +89,26 @@ test('洞窟の入口：入った瞬間に一度だけ確認。中にいる間�
   expect(director.update(0.1, { ...quiet, zones: ['caveMouth'] }).actions).toContain('askCave');
   expect(director.update(0.1, { ...quiet, zones: ['caveMouth'], interact: 'caveMouth' }).actions).toContain('askCave');
 });
+
+test('残響の碑：会話の途中でも、近づいた時にすぐ保存する（後回しにして新しい保存を上書きしない）', () => {
+  const { director, progress } = enterRose();
+  // 長い会話（庭園の台詞）を流している途中で、碑に近づく
+  run(director, 0.3, { zones: ['garden'] });
+  run(director, 0.2, { zones: ['gardenStone'] });
+  expect(progress.checkpoint()).toBe('garden');
+});
+
+test('残響の碑：立っている間、何度も保存し直して会話を止めない（保存の知らせは一度）', () => {
+  const { director } = enterRose();
+  run(director, 0.3, { zones: ['garden'] });
+  const toasts = [];
+  let said = [];
+  for (let i = 0; i < 60; i++) {
+    const { actions, said: s } = run(director, 0.1, { zones: ['gardenStone'] });
+    toasts.push(...actions.filter((a) => a.startsWith('toast:')));
+    said = [...said, ...s];
+  }
+  expect(toasts).toHaveLength(1);
+  // 庭園の台詞は先へ進んでいる（2行目まで出る）
+  expect(new Set(said).size).toBeGreaterThanOrEqual(2);
+});

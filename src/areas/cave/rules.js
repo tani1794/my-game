@@ -5,6 +5,9 @@ const ELIA = 'エリア';
 const NARRATION = '';
 const DIRECTIONS = ['北', '東', '南', '西'];
 
+
+// 残響の碑：まだそこに保存していなければ、会話に割り込んですぐ保存する（会話は同じ行から続く）
+const SAVE_NOW = { once: false, urgent: true };
 export const CAVE_OBJECTIVES = {
   light: '反射器で光を導き、石扉を開く',
   river: '下層の水門を開き、対岸へ渡る道を作る',
@@ -90,7 +93,7 @@ export function createCaveRules() {
     },
     react(signals, { play, progress, action }) {
       const zones = new Set(signals.zones);
-      if (zones.has('midStone') && progress.flag('lightOpen')) play('midStone', { once: false });
+      if (zones.has('midStone') && progress.flag('lightOpen') && progress.checkpoint() !== 'caveMid') play('midStone', SAVE_NOW);
       if (zones.has('river') && progress.flag('lightOpen')) play('river');
       if (zones.has('vista') && progress.flag('planksSet')) play('vista', { once: false });
 

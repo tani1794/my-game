@@ -10,6 +10,9 @@ const NARRATION = '';
 const DIRECTIONS = ['北', '東', '南', '西'];
 const BOSS_ID = 'fr-isval';
 
+
+// 残響の碑：まだそこに保存していなければ、会話に割り込んですぐ保存する（会話は同じ行から続く）
+const SAVE_NOW = { once: false, urgent: true };
 export const FROST_OBJECTIVES = {
   mirei: '灯の見える野営地で、灯守に話を聞く',
   thaw: '風除けで炉の火を守り、導管の熱を凍った水門へ送る',
@@ -195,12 +198,12 @@ export function createFrostRules() {
       const zones = new Set(signals.zones);
       if (zones.has('brokenBridge') && !progress.flag('sluiceThawed')) play('brokenBridge');
       if (zones.has('shelter') && progress.flag('sluiceThawed')) {
-        play('midStone', { once: false });
+        if (progress.checkpoint() !== 'frostMid') play('midStone', SAVE_NOW);
         play('shelter');
       }
       if (zones.has('ridge') && progress.flag('duelistDown')) play('ridge');
       if (zones.has('gate') && progress.flag('iceGateOpen')) {
-        play('gateStone', { once: false });
+        if (progress.checkpoint() !== 'frostGate') play('gateStone', SAVE_NOW);
         play('gateWarn');
       }
       if (zones.has('arena') && progress.flag('iceGateOpen') && !progress.flag('isvalDefeated') && !signals.bossActive) {

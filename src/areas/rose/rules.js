@@ -3,6 +3,9 @@
 const ELIA = 'エリア';
 const NARRATION = '';
 
+
+// 残響の碑：まだそこに保存していなければ、会話に割り込んですぐ保存する（会話は同じ行から続く）
+const SAVE_NOW = { once: false, urgent: true };
 export const ROSE_OBJECTIVES = {
   bridge: '崩れた橋の先へ進む',
   detour: '迂回路を探す（橋の西の階段）',
@@ -131,9 +134,9 @@ export function createRoseRules() {
       const zones = new Set(signals.zones);
       if (zones.has('collapse')) play('collapse');
       if (zones.has('garden')) play('garden');
-      if (zones.has('gardenStone')) play('stone', { once: false });
+      if (zones.has('gardenStone') && progress.checkpoint() !== 'garden') play('stone', SAVE_NOW);
       if (zones.has('oath') && !progress.flag('evolved')) play('oath', { urgent: true, resume: false });
-      if (zones.has('oathStone') && progress.flag('evolved')) play('oathStone', { once: false });
+      if (zones.has('oathStone') && progress.flag('evolved') && progress.checkpoint() !== 'oath') play('oathStone', SAVE_NOW);
       // 洞窟の入口：入った瞬間に一度だけ確認する。「いいえ」のあとは、一度出て入り直すか、調べると出る
       const inCave = zones.has('caveMouth');
       if (inCave && !insideCave && progress.flag('evolved')) action('askCave');
