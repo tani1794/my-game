@@ -200,7 +200,7 @@ export const dirOf = (a, b) => new THREE.Vector3(...b).sub(new THREE.Vector3(...
 export const lerp3 = (a, b, t) => a.map((x, i) => x + (b[i] - x) * t);
 
 // 尖頭の飾り（王冠の尖塔）：細長い尖りに、左右の小さな棘
-function spireShape(height, width) {
+export function spireShape(height, width) {
   const s = new THREE.Shape();
   const h = height;
   const w = width;
@@ -506,7 +506,7 @@ export function buildCrownedKnight(gltf) {
   return { scene: root, animations: gltf.animations };
 }
 
-function buildCloak(chestBone, chest, neck, m) {
+export function buildCloak(chestBone, chest, neck, m, name = 'Crowned_Cloak') {
   const ROWS = 14;
   const COLS = 16;
   const top = neck[1] - 0.04;
@@ -575,7 +575,7 @@ function buildCloak(chestBone, chest, neck, m) {
   geometry.setIndex(index);
   geometry.computeVertexNormals();
   const mesh = new THREE.SkinnedMesh(geometry, m.cloak);
-  mesh.name = 'Crowned_Cloak';
+  mesh.name = name;
   mesh.castShadow = true;
   mesh.frustumCulled = false;
   const skeleton = new THREE.Skeleton(bones);

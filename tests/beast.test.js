@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest';
 import * as THREE from 'three';
-import { createBeast, createFallbackBeast } from '../src/world/beast.js';
+import { createBeast, createFallbackBeast, slamBody } from '../src/world/beast.js';
 
 const flat = () => 0;
 
@@ -140,12 +140,14 @@ test('向きが変わると、胴の前後の当たり判定も回る', async ()
   expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(5);
 });
 
-test('叩きつけの前半は頭側を持ち上げ、後半で振り下ろす', async () => {
+test('叩きつけは予告の間に頭側を持ち上げ、当たる瞬間（攻撃の始まり）に振り下ろして沈む', async () => {
   const beast = await createBeast(new THREE.Scene(), '/models/beast.glb', flat, async () => fakeGltf());
-  beast.apply(beastFrame({ phase: 'strike', cue: { kind: 'slam', t: 0.25 } }), 1);
+  beast.apply(beastFrame({ phase: 'telegraph', attack: { kind: 'slam', progress: 0.8, shapes: [] } }), 1);
   expect(beast.object.rotation.x).toBeLessThan(-0.1);
-  beast.apply(beastFrame({ phase: 'strike', cue: { kind: 'slam', t: 1 } }), 1.1);
+  beast.apply(beastFrame({ phase: 'strike', cue: { kind: 'slam', t: 0.05 } }), 1.1);
   expect(beast.object.rotation.x).toBeGreaterThan(0);
+  beast.apply(beastFrame({ phase: 'strike', cue: { kind: 'slam', t: 1 } }), 1.6);
+  expect(Math.abs(beast.object.rotation.x)).toBeLessThan(0.01);
 });
 
 test('倒れると横に倒れて沈み、結晶が消える（代わりの獣は結晶のメッシュを隠す。AIの獣は発光が0）', async () => {
@@ -208,9 +210,9 @@ test('歩くと、左右の前脚が逆向きに振れる。止まっていれ�
   expect(Math.abs(still.fore_l_upper.x)).toBeLessThan(0.02);
 });
 
-test('叩きつけの前半は前脚を振り上げ、後半で地面へ戻す', () => {
-  const raise = jointPose({ gait: 0, stride: 0, cue: { kind: 'slam', t: 0.45 }, phase: 'strike', time: 0 });
-  const land = jointPose({ gait: 0, stride: 0, cue: { kind: 'slam', t: 1 }, phase: 'strike', time: 0 });
+test('叩きつけは予告の間に前脚を振り上げ、攻撃の終わりには地面へ戻す', () => {
+  const raise = jointPose({ gait: 0, stride: 0, cue: null, slam: 0.4, phase: 'telegraph', time: 0 });
+  const land = jointPose({ gait: 0, stride: 0, cue: { kind: 'slam', t: 1 }, slam: 1, phase: 'strike', time: 0 });
   expect(raise.fore_l_upper.x).toBeLessThan(-0.6);
   expect(Math.abs(land.fore_l_upper.x)).toBeLessThan(0.1);
 });
@@ -254,4 +256,26 @@ test('関節のある獣は、大きさを合わせ直さず（メートルの�
   const leg = beast.object.getObjectByName('fore_l_upper');
   const other = beast.object.getObjectByName('fore_r_upper');
   expect(Math.abs(leg.rotation.x) + Math.abs(other.rotation.x)).toBeGreaterThan(0.1);
+});
+
+// 叩きつけの重さ：身を沈める溜め → 後ろ足を地面に残して前を持ち上げる → 叩きつけて沈む → 反動 → 戻る
+test('叩きつけ：はじめに身を沈め（頭が下がる）、持ち上げる間も後ろ足は地面に残る', () => {
+  const crouch = slamBody(0.08, 2.6);
+  expect(crouch.pitch).toBeGreaterThan(0);
+  expect(crouch.sink).toBeGreaterThan(0.1);
+  const rear = slamBody(0.4, 2.6);
+  expect(rear.pitch).toBeLessThan(-15 * Math.PI / 180);
+  // 体の回転（x 軸）で後ろ足の位置 (0, 0, -2.6) がどれだけ上下するか：持ち上げ分で打ち消す
+  const footY = (b) => -(-2.6) * Math.sin(b.pitch) + b.lift - b.sink;
+  expect(Math.abs(footY(rear))).toBeLessThan(0.05);
+});
+
+test('叩きつけ：振り下ろした直後は前へ沈み込み（反動）、最後は元の姿勢に戻る', () => {
+  const impact = slamBody(0.53, 2.6);
+  expect(impact.pitch).toBeGreaterThan(0);
+  expect(impact.sink).toBeGreaterThan(0.1);
+  const end = slamBody(1, 2.6);
+  expect(Math.abs(end.pitch)).toBeLessThan(1e-6);
+  expect(Math.abs(end.lift)).toBeLessThan(1e-6);
+  expect(Math.abs(end.sink)).toBeLessThan(1e-6);
 });

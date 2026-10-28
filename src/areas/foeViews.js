@@ -13,7 +13,7 @@ import { createCreature } from './creatures.js';
 const FADE = 0.15;
 const HUMAN_HEIGHT = 1.9;
 // 専用の模型を持つ人型（骨格と動作は skeleton_warrior と同じ。持ち物も模型に入っている。原寸のまま使う）
-const MODELS = { spear: 'models/revenant-spear.glb' };
+const MODELS = { spear: 'models/revenant-spear-v2.glb' };
 
 function mat(color, extra = {}) {
   return new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness: 0.05, ...extra });
@@ -367,6 +367,9 @@ export async function createFoeViews(scene, posts, defs, heightAt, { load = load
         let native = null;
         body.traverse((o) => { if (o.userData?.nativeScale) native = o.userData; });
         view.speedOf = native?.animationSpeed ?? {};
+        // 外套の骨（専用の模型だけ）：歩く速さで後ろへなびかせる
+        view.capes = [1, 2, 3, 4].map((i) => body.getObjectByName(`cape${i}`)).filter(Boolean);
+        view.capeLean = 0;
         if (!native) {
           const { box, size } = measureModel(body);
           body.scale.setScalar(HUMAN_HEIGHT / size.y);
@@ -492,6 +495,17 @@ export async function createFoeViews(scene, posts, defs, heightAt, { load = load
     view.current = name;
   }
 
+  // 外套：速さに合わせて後ろへなびき（付け根がいちばん大きく、先は少しずつ）、ゆっくり揺れる。止まると垂れる
+  function moveCape(view, frame, dt, time) {
+    const speed = Math.hypot(frame.x - view.lastX, frame.z - view.lastZ) / Math.max(dt, 1e-3);
+    const target = frame.phase === 'dead' ? 0 : Math.min(0.6, speed * 0.12);
+    view.capeLean += (target - view.capeLean) * Math.min(1, dt * 4);
+    const sway = Math.sin(time * 1.7 + view.post.x) * 0.04;
+    view.capes.forEach((bone, i) => {
+      bone.rotation.x = i === 0 ? view.capeLean * 0.7 + sway : view.capeLean * 0.18 + sway * 0.5 * Math.sin(time * 2.3 + i);
+    });
+  }
+
   // 獣・虫の動き（歩く脚・羽ばたき・溜め・突き・よろめき）
   function animateRig(view, frame, dt, time) {
     const { rig } = view;
@@ -609,6 +623,7 @@ export async function createFoeViews(scene, posts, defs, heightAt, { load = load
         const scale = frame.phase === 'windup' && attack ? 0.8 / (frame.windupTime || attack.windup) : 1;
         play(view, humanoidAnimation(frame), scale);
         view.mixer.update(dt);
+        if (view.capes?.length) moveCape(view, frame, dt, time);
       } else {
         animateRig(view, frame, dt, time);
       }

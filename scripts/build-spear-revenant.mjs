@@ -1,7 +1,7 @@
 // 敵「晶槍の亡兵」の GLB を作る：開発サーバー（npx vite --host --port 5173）が動いている状態で
 //   node scripts/build-spear-revenant.mjs [確認画像の出力先]
 // public/models/skeleton_warrior.glb（元のまま残す。ほかの人型の敵が使う）を読み、scripts/models/spearRevenant.js で組み立て、
-// public/models/revenant-spear.glb に書き出す（meshopt と webp で圧縮）。
+// public/models/revenant-spear-v2.glb に書き出す（meshopt と webp で圧縮）。
 // 圧縮したものを読み直して、確認画像（正面・横・後ろ・動作の途中）を保存する。
 import fs from 'node:fs';
 import os from 'node:os';
@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import puppeteer from 'puppeteer-core';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
-const OUT = path.join(ROOT, 'public/models/revenant-spear.glb');
+const OUT = path.join(ROOT, 'public/models/revenant-spear-v2.glb');
 const SHOTS = process.argv[2] ?? path.join(ROOT, 'docs/models');
 const PORT = process.env.PORT ?? 5173;
 const CHROME = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -41,7 +41,7 @@ execFileSync(cli, ['meshopt', step('webp.glb'), OUT], { stdio: 'ignore' });
 const result = await page.evaluate(async () => {
   const { loadGLTF } = await import('/src/assets.js');
   const { renderViews, rememberRest, THREE } = await import('/scripts/models/exportGlb.js');
-  const back = await loadGLTF(`/models/revenant-spear.glb?${Date.now()}`);
+  const back = await loadGLTF(`/models/revenant-spear-v2.glb?${Date.now()}`);
   const box = new THREE.Box3().setFromObject(back.scene);
   let meshes = 0;
   let triangles = 0;
@@ -77,6 +77,6 @@ const result = await page.evaluate(async () => {
   };
 });
 fs.mkdirSync(SHOTS, { recursive: true });
-result.shots.forEach((data, i) => fs.writeFileSync(path.join(SHOTS, `revenant-spear-${i}-${result.names[i]}.png`), Buffer.from(data.split(',')[1], 'base64')));
+result.shots.forEach((data, i) => fs.writeFileSync(path.join(SHOTS, `revenant-spear-v2-${i}-${result.names[i]}.png`), Buffer.from(data.split(',')[1], 'base64')));
 console.log(JSON.stringify({ out: OUT, bytes: fs.statSync(OUT).size, ...result.check }));
 await browser.close();

@@ -122,7 +122,7 @@ player.load(asset('models/knight-crowned.glb'));
 
 // 結晶獣：読み込めたら当たり判定に加える（失敗時はコードで作る獣になる）
 let beast = null;
-createBeast(scene, asset('models/beast-crystal.glb'), terrain.heightAt).then((loaded) => {
+createBeast(scene, asset('models/beast-crystal-v2.glb'), terrain.heightAt).then((loaded) => {
   beast = loaded;
   // 結晶獣の当たり判定は、動くたびに中身が書き換わる（同じ配列のまま）
   colliders.push(...loaded.colliders);

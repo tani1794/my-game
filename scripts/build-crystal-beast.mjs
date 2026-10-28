@@ -1,6 +1,6 @@
 // 結晶獣の GLB を作る：開発サーバー（npx vite --host --port 5173）が動いている状態で
 //   node scripts/build-crystal-beast.mjs [確認画像の出力先]
-// scripts/models/crystalBeast.js で組み立て、public/models/beast-crystal.glb に書き出す（元の beast.glb は残す）。
+// scripts/models/crystalBeast.js で組み立て、public/models/beast-crystal-v2.glb に書き出す（元の beast.glb は残す）。
 // 圧縮（webp・meshopt）してから読み直し、確認画像（正面寄り・横・後ろ）を保存する。
 import fs from 'node:fs';
 import os from 'node:os';
@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import puppeteer from 'puppeteer-core';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
-const OUT = path.join(ROOT, 'public/models/beast-crystal.glb');
+const OUT = path.join(ROOT, 'public/models/beast-crystal-v2.glb');
 const SHOTS = process.argv[2] ?? path.join(ROOT, 'docs/models');
 const PORT = process.env.PORT ?? 5173;
 const CHROME = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -34,7 +34,7 @@ execFileSync(cli, ['meshopt', step('webp.glb'), OUT], { stdio: 'ignore' });
 const result = await page.evaluate(async () => {
   const { loadGLTF } = await import('/src/assets.js');
   const { renderViews, THREE } = await import('/scripts/models/exportGlb.js');
-  const back = await loadGLTF(`/models/beast-crystal.glb?${Date.now()}`);
+  const back = await loadGLTF(`/models/beast-crystal-v2.glb?${Date.now()}`);
   const box = new THREE.Box3().setFromObject(back.scene);
   let meshes = 0;
   let triangles = 0;
@@ -49,7 +49,7 @@ const result = await page.evaluate(async () => {
   const joints = [];
   back.scene.traverse((o) => { if (o.userData?.joints) joints.push(...o.userData.joints); });
   const views = [{ angle: 0.5 }, { angle: Math.PI / 2 }, { angle: Math.PI + 0.45 }];
-  const shots = renderViews(back.scene, { views, height: 5, size: [640, 480] });
+  const shots = renderViews(back.scene, { views, height: 7.2, size: [640, 480] });
   return { check: { size: box.getSize(new THREE.Vector3()).toArray().map((n) => +n.toFixed(2)), min: box.min.toArray().map((n) => +n.toFixed(2)), meshes, triangles: Math.round(triangles), materials: [...materials], joints: joints.length }, shots };
 });
 fs.mkdirSync(SHOTS, { recursive: true });

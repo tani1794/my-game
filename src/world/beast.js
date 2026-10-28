@@ -53,7 +53,40 @@ function addCrystalGlow(material, glowUniform, colorUniform) {
 // gait：歩きの周期（ラジアン、進んだ道のりで進む）、stride：脚の振りの大きさ（0 止まる 〜 1 歩く 〜 1.4 突進）。
 // 回転は各関節の x（前後に振る）・z（外へ開く）。脚は前へ振ると x が負
 const LEG_SIDES = ['l', 'r'];
-export function jointPose({ gait, stride, cue, phase, time }) {
+// 叩きつけの体の動き。t は 0〜1（0.5 が当たる瞬間＝攻撃の始まり。前半は予告の間）。
+// 溜め（頭が少し下がり沈む）→ 後ろ足を支点に前を持ち上げる → 速く振り下ろす → 前へ沈む反動 → 戻る。
+// hindZ：体の中心から後ろ足までの距離。持ち上げる間、後ろ足が地面に残るよう体を上げる（lift）
+export function slamBody(t, hindZ) {
+  let pitch = 0;
+  let sink = 0;
+  if (t < 0.15) {
+    const k = ease(t / 0.15);
+    pitch = 4 * DEG * k;
+    sink = 0.25 * k;
+  } else if (t < 0.42) {
+    const k = ease((t - 0.15) / 0.27);
+    pitch = (4 - 28 * k) * DEG;
+    sink = 0.25 * (1 - k);
+  } else if (t < 0.5) {
+    const k = ((t - 0.42) / 0.08) ** 2;
+    pitch = (-24 + 29 * k) * DEG;
+    sink = 0.3 * k;
+  } else {
+    const k = ease(Math.min(1, (t - 0.5) / 0.5));
+    pitch = 5 * DEG * (1 - k);
+    sink = 0.3 * (1 - k);
+  }
+  return { pitch, lift: pitch < 0 ? hindZ * Math.sin(-pitch) : 0, sink };
+}
+
+// 叩きつけの進み（0〜1、slamBody と同じ）：予告の間は 0〜0.5、攻撃の間は 0.5〜1。叩きつけでなければ null
+export function slamProgress(frame) {
+  if (frame.cue?.kind === 'slam') return 0.5 + frame.cue.t * 0.5;
+  if (frame.phase === 'telegraph' && frame.attack?.kind === 'slam') return frame.attack.progress * 0.5;
+  return null;
+}
+
+export function jointPose({ gait, stride, cue, phase, time, slam = null }) {
   const pose = {};
   const set = (name, x = 0, z = 0, y = 0) => { pose[name] = { x, y, z }; };
   // 対角の脚が同時に動く歩き（左前と右後ろ、右前と左後ろ）
@@ -76,14 +109,23 @@ export function jointPose({ gait, stride, cue, phase, time }) {
   set('tail2', 0, 0, Math.sin(time * 1.4 + gait - 0.8) * 0.18);
 
   if (phase === 'telegraph') pose.jaw.x = 0.35;
-  if (cue?.kind === 'slam') {
-    // 前半：前脚を振り上げ、頭を上げる。後半：叩きつけて元へ
-    const up = cue.t < 0.5 ? ease(cue.t / 0.5) : 1 - ease((cue.t - 0.5) / 0.5);
+  if (slam !== null) {
+    // 溜めで脚を曲げ、持ち上げで前脚を振り上げ、振り下ろしで叩きつける。当たった後は前脚が衝撃で曲がり、戻る
+    const s = slam;
+    const crouch = s < 0.15 ? ease(s / 0.15) : s < 0.42 ? 1 - ease((s - 0.15) / 0.27) : 0;
+    const up = s < 0.15 ? 0 : s < 0.42 ? ease((s - 0.15) / 0.27) : s < 0.5 ? 1 - ((s - 0.42) / 0.08) ** 2 : 0;
+    const recoil = s >= 0.5 ? 1 - ease(Math.min(1, (s - 0.5) / 0.4)) : 0;
+    const { pitch } = slamBody(s, 0);
     for (const side of LEG_SIDES) {
       pose[`fore_${side}_upper`].x = -1.1 * up;
-      pose[`fore_${side}_lower`].x = 0.9 * up;
+      pose[`fore_${side}_lower`].x = 0.9 * up + 0.25 * crouch + 0.3 * recoil;
+      pose[`fore_${side}_paw`].x = -0.25 * recoil;
+      pose[`hind_${side}_lower`].x += 0.3 * crouch;
+      // 体が傾いても、後ろ足の裏は地面に平らなまま
+      pose[`hind_${side}_foot`].x = -pitch;
     }
-    pose.jaw.x = 0.4 * up;
+    pose.head.x = -0.15 * up + 0.2 * recoil;
+    pose.jaw.x = 0.4 * Math.max(up, recoil);
   } else if (cue?.kind === 'stagger') {
     // よろめき：脚がたわみ、頭が揺れる
     const wobble = Math.sin(cue.t * Math.PI * 6) * (1 - cue.t);
@@ -202,9 +244,12 @@ function rig({ pivot, length, heightAt, bodyMaterials, crystals, joints = null }
     let bob = 0;
     const cue = frame.cue;
 
-    if (cue?.kind === 'slam') {
-      // 前半で頭側を 25 度持ち上げ、後半で振り下ろして 3 度沈む
-      pitch = cue.t < 0.5 ? -25 * DEG * ease(cue.t / 0.5) : (-25 + 28 * ease((cue.t - 0.5) / 0.5)) * DEG;
+    const slam = slamProgress(frame);
+    if (slam !== null) {
+      // 予告の間に後ろ足を支点に持ち上げ、当たる瞬間に振り下ろして沈む（slamBody）
+      const body = slamBody(slam, length * 0.25);
+      pitch = body.pitch;
+      sink = body.sink - body.lift;
     } else if (cue?.kind === 'charge') {
       pitch = 8 * DEG * Math.sin(Math.PI * Math.min(1, cue.t * 1.2));
     } else if (cue?.kind === 'spin') {
@@ -253,7 +298,7 @@ function rig({ pivot, length, heightAt, bodyMaterials, crystals, joints = null }
     const speed = dt > 0 ? moved / dt : 0;
     const target = frame.phase === 'dead' ? 0 : cue?.kind === 'charge' ? 1.4 : cue?.kind === 'spin' ? 0.8 : Math.min(1, speed / 2.5);
     stride += (target - stride) * Math.min(1, dt * 6);
-    const pose = jointPose({ gait, stride, cue, phase: frame.phase, time });
+    const pose = jointPose({ gait, stride, cue, phase: frame.phase, time, slam: slamProgress(frame) });
     for (const [name, angles] of Object.entries(pose)) {
       const node = joints[name];
       if (node) node.rotation.set(angles.x, angles.y, angles.z);
