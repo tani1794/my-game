@@ -1,15 +1,19 @@
 // エリアの敵の見た目。頭脳は src/story/enemy.js（frame を受け取って形と動きに写す）。
 // 人型（槍・盾・祈り手）は KayKit Skeleton_Warrior（CC0）に持ち物と色を変えて使う。
-// 獣・虫・蝙蝠・蜘蛛・巨兵は、手元に合う立体素材がないため、コードで組み立てた仮の形（輪郭・大きさ・動きで見分ける）。
+// 晶牙ハウンド・硝子羽の蝙蝠・結晶甲虫・晶糸の蜘蛛は、関節ごとに分けてコードで作った体（src/areas/creatures.js）。
+// ほかの獣・巨兵は、手元に合う立体素材がないため、コードで組み立てた仮の形（輪郭・大きさ・動きで見分ける）。
 // 予兆は足もとの橙の印（今までの結晶獣と同じ描き方）、詠唱は紫の輪、強化は金の輪、蜘蛛の糸は地面の網。
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { loadGLTF, measureModel, withFallback } from '../assets.js';
 import { asset } from '../paths.js';
 import { createTelegraphs } from '../world/telegraph.js';
+import { createCreature } from './creatures.js';
 
 const FADE = 0.15;
 const HUMAN_HEIGHT = 1.9;
+// 専用の模型を持つ人型（骨格と動作は skeleton_warrior と同じ。持ち物も模型に入っている。原寸のまま使う）
+const MODELS = { spear: 'models/revenant-spear.glb' };
 
 function mat(color, extra = {}) {
   return new THREE.MeshStandardMaterial({ color, roughness: 0.75, metalness: 0.05, ...extra });
@@ -29,97 +33,6 @@ function add(parent, geometry, material, [x, y, z] = [0, 0, 0], [rx, ry, rz] = [
 // ── コードで組み立てる体 ──
 // 返り値：{ body（揺らす部分）, legs, wings, parts（弱点）, animate? }
 const BUILDERS = {
-  // 晶牙ハウンド：低く長い四つ足、背中と牙に結晶
-  hound() {
-    const body = new THREE.Group();
-    const fur = mat('#38414a');
-    add(body, new THREE.SphereGeometry(0.5, 10, 8), fur, [0, 0.75, 0], [0, 0, 0], [0.75, 0.62, 1.55]);
-    add(body, new THREE.SphereGeometry(0.32, 10, 8), fur, [0, 0.95, 0.85], [0, 0, 0], [0.9, 0.85, 1.25]);
-    const glass = crystal();
-    for (let i = 0; i < 4; i++) add(body, new THREE.ConeGeometry(0.1, 0.45, 5), glass, [0, 1.12, 0.35 - i * 0.3], [-0.4, 0, 0]);
-    add(body, new THREE.ConeGeometry(0.05, 0.22, 4), glass, [0.1, 0.78, 1.2], [Math.PI * 0.9, 0, 0]);
-    add(body, new THREE.ConeGeometry(0.05, 0.22, 4), glass, [-0.1, 0.78, 1.2], [Math.PI * 0.9, 0, 0]);
-    add(body, new THREE.SphereGeometry(0.045, 6, 4), mat('#9fe7ff', { emissive: '#9fe7ff', emissiveIntensity: 2 }), [0.12, 1.02, 1.2]);
-    add(body, new THREE.SphereGeometry(0.045, 6, 4), mat('#9fe7ff', { emissive: '#9fe7ff', emissiveIntensity: 2 }), [-0.12, 1.02, 1.2]);
-    const legs = [[0.25, 0.5], [-0.25, 0.5], [0.25, -0.5], [-0.25, -0.5]].map(([x, z]) => {
-      const pivot = new THREE.Group();
-      pivot.position.set(x, 0.62, z);
-      add(pivot, new THREE.BoxGeometry(0.13, 0.62, 0.13), fur, [0, -0.31, 0]);
-      body.add(pivot);
-      return pivot;
-    });
-    return { body, legs };
-  },
-  // 硝子羽の蝙蝠：小さな体に、透ける硝子の大きな翼
-  bat() {
-    const body = new THREE.Group();
-    const skin = mat('#2d2a35');
-    add(body, new THREE.SphereGeometry(0.28, 10, 8), skin, [0, 0, 0], [0, 0, 0], [0.9, 1, 1.2]);
-    add(body, new THREE.ConeGeometry(0.07, 0.22, 4), skin, [0.12, 0.28, 0.12]);
-    add(body, new THREE.ConeGeometry(0.07, 0.22, 4), skin, [-0.12, 0.28, 0.12]);
-    const glass = crystal('#c9f6ff', '#4fd2ff', 0.6);
-    glass.side = THREE.DoubleSide;
-    glass.opacity = 0.7;
-    const wingShape = new THREE.Shape();
-    wingShape.moveTo(0, 0);
-    wingShape.lineTo(1.1, 0.25);
-    wingShape.lineTo(0.95, -0.15);
-    wingShape.lineTo(0.7, -0.05);
-    wingShape.lineTo(0.5, -0.3);
-    wingShape.lineTo(0.25, -0.1);
-    wingShape.lineTo(0, -0.25);
-    const wingGeometry = new THREE.ShapeGeometry(wingShape);
-    wingGeometry.rotateX(-Math.PI / 2);
-    const wings = [1, -1].map((side) => {
-      const pivot = new THREE.Group();
-      pivot.position.set(0.15 * side, 0.05, 0);
-      const wing = add(pivot, wingGeometry, glass);
-      wing.scale.x = side;
-      body.add(pivot);
-      return { pivot, side };
-    });
-    return { body, wings };
-  },
-  // 結晶甲虫：丸い殻、正面に硬い結晶の板と角、背中の継ぎ目が淡く光る（弱点）
-  beetle() {
-    const body = new THREE.Group();
-    const shell = mat('#2b3a46', { roughness: 0.45, metalness: 0.2 });
-    add(body, new THREE.SphereGeometry(0.75, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), shell, [0, 0.35, -0.1], [0, 0, 0], [1, 0.8, 1.3]);
-    add(body, new THREE.BoxGeometry(1.25, 0.75, 0.22), crystal('#a6ecff', '#2bb7ff', 0.5), [0, 0.6, 0.85], [-0.25, 0, 0]);
-    add(body, new THREE.ConeGeometry(0.16, 0.8, 5), crystal(), [0, 0.95, 1.1], [1.1, 0, 0]);
-    const seam = add(body, new THREE.BoxGeometry(0.08, 0.05, 1.0), mat('#ffb37a', { emissive: '#ff8a3b', emissiveIntensity: 1.2 }), [0, 0.96, -0.25]);
-    const legs = [];
-    for (const side of [1, -1]) {
-      for (let i = 0; i < 3; i++) {
-        const pivot = new THREE.Group();
-        pivot.position.set(0.6 * side, 0.35, 0.4 - i * 0.45);
-        add(pivot, new THREE.BoxGeometry(0.5, 0.07, 0.07), shell, [0.25 * side, -0.15, 0], [0, 0, -0.6 * side]);
-        body.add(pivot);
-        legs.push(pivot);
-      }
-    }
-    return { body, legs, parts: [seam] };
-  },
-  // 晶糸の蜘蛛：結晶の腹、細く長い8本の脚
-  spider() {
-    const body = new THREE.Group();
-    const dark = mat('#252a30');
-    add(body, new THREE.SphereGeometry(0.35, 10, 8), dark, [0, 0.7, 0.35]);
-    add(body, new THREE.SphereGeometry(0.55, 12, 10), crystal('#bdf3ff', '#3cc8ff', 0.7), [0, 0.85, -0.45], [0, 0, 0], [1, 0.85, 1.2]);
-    const legs = [];
-    for (const side of [1, -1]) {
-      for (let i = 0; i < 4; i++) {
-        const pivot = new THREE.Group();
-        pivot.position.set(0.25 * side, 0.75, 0.55 - i * 0.28);
-        pivot.rotation.y = side * (0.5 - i * 0.35) + (side > 0 ? 0 : Math.PI);
-        add(pivot, new THREE.CylinderGeometry(0.035, 0.035, 0.75, 4), dark, [0.32, 0.18, 0], [0, 0, -1.0]);
-        add(pivot, new THREE.CylinderGeometry(0.03, 0.02, 0.95, 4), dark, [0.82, -0.25, 0], [0, 0, 0.55]);
-        body.add(pivot);
-        legs.push(pivot);
-      }
-    }
-    return { body, legs };
-  },
   // 晶角の突貫獣（精鋭）：大きな四つ足、前へ突き出した巨大な結晶の角、肩の結晶の鎧
   charger() {
     const body = new THREE.Group();
@@ -435,6 +348,11 @@ export async function createFoeViews(scene, posts, defs, heightAt, { load = load
   const warrior = needsHuman
     ? await withFallback(load(asset('models/skeleton_warrior.glb')).then((gltf) => { measureModel(gltf.scene); return gltf; }), () => null)
     : null;
+  // 専用の模型：読めなければ、今までの骸骨兵で代わりに表示する
+  const special = {};
+  for (const look of new Set(posts.map((p) => defs[p.type].look))) {
+    if (MODELS[look]) special[look] = await withFallback(load(asset(MODELS[look])), () => null);
+  }
 
   const views = new Map();
   // 敵ひとつ分の見た目を作る。分身（clone）は影を落とさず、少し透けて揺らぐ
@@ -443,16 +361,24 @@ export async function createFoeViews(scene, posts, defs, heightAt, { load = load
     object.name = post.id;
     const view = { post, def, object, mixer: null, actions: {}, current: null, rig: null, flash: 0, deadTime: 0, materials: [], eyes: [], clone, stride: 0, lastX: post.x, lastZ: post.z };
     if (GEAR[def.look]) {
-      if (warrior) {
-        const body = cloneSkinned(warrior.scene);
-        const { box, size } = measureModel(body);
-        body.scale.setScalar(HUMAN_HEIGHT / size.y);
-        body.position.y = -box.min.y * body.scale.y;
+      const source = special[def.look] ?? warrior;
+      if (source) {
+        const body = cloneSkinned(source.scene);
+        let native = null;
+        body.traverse((o) => { if (o.userData?.nativeScale) native = o.userData; });
+        view.speedOf = native?.animationSpeed ?? {};
+        if (!native) {
+          const { box, size } = measureModel(body);
+          body.scale.setScalar(HUMAN_HEIGHT / size.y);
+          body.position.y = -box.min.y * body.scale.y;
+        }
         const tint = { spear: '#9fb8c8', shield: '#b7aa98', caster: '#b8a6c8', iceSpear: '#c4d6e2', frostShield: '#a8b4bc', frostCaster: '#e2e8ee', duelist: '#cfe2ee' }[def.look];
         const eyeColor = { caster: '#d4b4ff', frostCaster: '#ffffff', duelist: '#bfefff' }[def.look] ?? '#9fe7ff';
         body.traverse((part) => {
           if (!part.isMesh) return;
           part.castShadow = true;
+          // 専用の模型：色は模型のまま（材質の複製は、下で材質ごとに一度だけ行う）
+          if (native) return;
           part.material = part.material.clone();
           if (part.name.includes('Eyes')) {
             part.material.emissive = new THREE.Color(eyeColor);
@@ -466,10 +392,10 @@ export async function createFoeViews(scene, posts, defs, heightAt, { load = load
         });
         const hand = body.getObjectByName('handslot.r');
         const leftHand = body.getObjectByName('handslot.l');
-        if (hand) view.gear = GEAR[def.look](hand, leftHand);
+        if (hand && !native) view.gear = GEAR[def.look](hand, leftHand);
         object.add(body);
         view.mixer = new THREE.AnimationMixer(body);
-        view.actions = Object.fromEntries(warrior.animations.map((clip) => [clip.name, view.mixer.clipAction(clip)]));
+        view.actions = Object.fromEntries(source.animations.map((clip) => [clip.name, view.mixer.clipAction(clip)]));
       } else {
         add(object, new THREE.CapsuleGeometry(0.3, 0.9, 4, 8), mat('#8a8f86'), [0, 0.95, 0]);
       }
@@ -487,16 +413,19 @@ export async function createFoeViews(scene, posts, defs, heightAt, { load = load
       if (def.look === 'shield') object.scale.setScalar(1.12);
       if (def.look === 'frostShield') object.scale.setScalar(1.2);
     } else {
-      view.rig = BUILDERS[def.look]();
+      view.rig = createCreature(def.look) ?? BUILDERS[def.look]();
       object.add(view.rig.body);
     }
+    // 材質は敵ごとに複製する（光り方を敵ごとに変えるため）。同じ材質を使う部品は、同じ複製を使う
+    const copies = new Map();
     object.traverse((part) => {
       if (part.isMesh && part.material && !view.eyes.includes(part)) {
         if (!part.userData.ownMaterial) {
-          part.material = part.material.clone();
+          if (!copies.has(part.material)) copies.set(part.material, part.material.clone());
+          part.material = copies.get(part.material);
           part.userData.ownMaterial = true;
         }
-        view.materials.push(part.material);
+        if (!view.materials.includes(part.material)) view.materials.push(part.material);
       }
     });
     view.baseEmissive = view.materials.map((m) => [m.emissive?.clone(), m.emissiveIntensity]);
@@ -553,7 +482,8 @@ export async function createFoeViews(scene, posts, defs, heightAt, { load = load
   function play(view, { name, loop }, timeScale = 1) {
     const action = view.actions[name];
     if (!action) return;
-    action.timeScale = timeScale;
+    // 脚の長い専用の模型は、歩きをゆっくり再生する（足の滑りを抑える）
+    action.timeScale = timeScale * (view.speedOf?.[name] ?? 1);
     if (view.current === name) return;
     action.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity);
     action.clampWhenFinished = !loop;
@@ -587,6 +517,8 @@ export async function createFoeViews(scene, posts, defs, heightAt, { load = load
       const target = frame.phase === 'windup' ? -2.6 : frame.phase === 'strike' ? 0.4 : moving ? Math.sin(time * 4) * 0.3 : 0;
       for (const arm of rig.arms) arm.rotation.x += (target - arm.rotation.x) * 0.25;
     }
+    // 関節で作った体：脚・翼・あごなどは creatures.js が動かす（速さは前の位置からの移動量）
+    rig.animate?.(frame, dt, time, Math.hypot(frame.x - view.lastX, frame.z - view.lastZ) / Math.max(dt, 1e-3));
     if (rig.parts) {
       // 弱点：腕の結晶は隙の間に強く光る。割れた分は消える
       rig.parts.forEach((part, i) => {
@@ -607,7 +539,8 @@ export async function createFoeViews(scene, posts, defs, heightAt, { load = load
     if (view.mound) { scene.remove(view.mound); view.mound.geometry.dispose(); view.mound.material.dispose(); }
     view.mixer?.stopAllAction();
     // 体の材質は view ごとに複製してあるので、ここで捨ててよい（骨格の形は読み込んだ模型と共有）
-    view.object.traverse((part) => { if (!part.isSkinnedMesh) part.geometry?.dispose(); });
+    // 関節で作った体の形は、同じ種類の敵で共有しているので捨てない（userData.shared）
+    view.object.traverse((part) => { if (!part.isSkinnedMesh && !part.userData.shared) part.geometry?.dispose(); });
     for (const material of view.materials) material.dispose();
     for (const ring of [view.chant, view.aura]) { ring.geometry.dispose(); ring.material.dispose(); }
   }

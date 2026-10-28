@@ -37,10 +37,10 @@ export const BONE_OFFSETS = {
 // 歩き・走りは脚が長くなった分だけ一歩が大きいので、動作をゆっくり再生して足の滑りを抑える
 export const ANIMATION_SPEED = { Walking_A: 0.62, Running_A: 0.66 };
 
-const clean = (name) => name.replace(/\./g, '');
+export const clean = (name) => name.replace(/\./g, '');
 
 // ── 材質（色だけでなく、粗さと反射で違いを出す） ──
-function noiseTexture(size, draw) {
+export function noiseTexture(size, draw) {
   const canvas = document.createElement('canvas');
   canvas.width = size; canvas.height = size;
   const ctx = canvas.getContext('2d');
@@ -135,7 +135,7 @@ export function createMaterials() {
 // 輪切りをつないだ筒：a → b の向きに、楕円の輪（rings: { t, rx, rz, cx?, cz? }）を並べる。両端は閉じる
 // side：輪の横の向きの基準（rx の向き）。省くと世界の x と up から決める
 // arc：輪の一部だけ（[始まり, 終わり] の角度。前の開いたフードなど）。そのときは両端を閉じない
-function loft(a, b, rings, { segments = 18, side = null, capStart = true, capEnd = true, arc = null } = {}) {
+export function loft(a, b, rings, { segments = 18, side = null, capStart = true, capEnd = true, arc = null } = {}) {
   const A = new THREE.Vector3(...a);
   const B = new THREE.Vector3(...b);
   const axis = B.clone().sub(A);
@@ -196,8 +196,8 @@ function loft(a, b, rings, { segments = 18, side = null, capStart = true, capEnd
 }
 
 // 2点の間の向き
-const dirOf = (a, b) => new THREE.Vector3(...b).sub(new THREE.Vector3(...a)).normalize();
-const lerp3 = (a, b, t) => a.map((x, i) => x + (b[i] - x) * t);
+export const dirOf = (a, b) => new THREE.Vector3(...b).sub(new THREE.Vector3(...a)).normalize();
+export const lerp3 = (a, b, t) => a.map((x, i) => x + (b[i] - x) * t);
 
 // 尖頭の飾り（王冠の尖塔）：細長い尖りに、左右の小さな棘
 function spireShape(height, width) {
@@ -224,12 +224,12 @@ function spireShape(height, width) {
 }
 
 // ── 骨格を伸ばす ──
-function retarget(gltf) {
+export function retarget(gltf, offsets = BONE_OFFSETS) {
   const root = gltf.scene;
   const bones = {};
   root.traverse((o) => { if (o.isBone) bones[o.name] = o; });
   const factors = {};
-  for (const [name, target] of Object.entries(BONE_OFFSETS)) {
+  for (const [name, target] of Object.entries(offsets)) {
     const bone = bones[clean(name)];
     if (!bone) continue;
     const old = bone.position.clone();
@@ -260,7 +260,7 @@ function retarget(gltf) {
 }
 
 // 部品を世界の位置（休みの姿勢）で作って、骨へ付ける（骨と一緒に動く）。pos・rot は世界での位置と回転
-function attach(bone, mesh, pos = null, rot = null) {
+export function attach(bone, mesh, pos = null, rot = null) {
   if (pos) mesh.position.set(...pos);
   if (rot) mesh.rotation.set(...rot);
   mesh.castShadow = true;
@@ -584,7 +584,7 @@ function buildCloak(chestBone, chest, neck, m) {
 }
 
 // 同じ親（骨や剣）に付いた、同じ材質の部品を1つの形にまとめる（描く回数を減らす。動きは同じ）
-function mergeParts(root) {
+export function mergeParts(root) {
   const parents = new Set();
   root.traverse((o) => { if (o.isMesh && !o.isSkinnedMesh && o.parent) parents.add(o.parent); });
   for (const parent of parents) {
