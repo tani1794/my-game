@@ -49,6 +49,65 @@ function addCrystalGlow(material, glowUniform, colorUniform) {
   };
 }
 
+// ── 関節のある結晶獣（beast-crystal.glb）の姿勢 ──
+// gait：歩きの周期（ラジアン、進んだ道のりで進む）、stride：脚の振りの大きさ（0 止まる 〜 1 歩く 〜 1.4 突進）。
+// 回転は各関節の x（前後に振る）・z（外へ開く）。脚は前へ振ると x が負
+const LEG_SIDES = ['l', 'r'];
+export function jointPose({ gait, stride, cue, phase, time }) {
+  const pose = {};
+  const set = (name, x = 0, z = 0, y = 0) => { pose[name] = { x, y, z }; };
+  // 対角の脚が同時に動く歩き（左前と右後ろ、右前と左後ろ）
+  for (const side of LEG_SIDES) {
+    const offset = side === 'l' ? 0 : Math.PI;
+    const fore = gait + offset;
+    const hind = gait + offset + Math.PI;
+    const lift = (a) => Math.max(0, Math.cos(a));
+    set(`fore_${side}_upper`, -Math.sin(fore) * 0.42 * stride);
+    set(`fore_${side}_lower`, lift(fore) * 0.55 * stride);
+    set(`fore_${side}_paw`, -lift(fore) * 0.3 * stride);
+    set(`hind_${side}_upper`, -Math.sin(hind) * 0.38 * stride);
+    set(`hind_${side}_lower`, lift(hind) * 0.5 * stride);
+    set(`hind_${side}_foot`, -lift(hind) * 0.3 * stride);
+  }
+  set('head', Math.sin(time * 0.9) * 0.03, 0, Math.sin(time * 0.6) * 0.05);
+  set('jaw', 0.04 + Math.sin(time * 1.3) * 0.02);
+  set('neck', 0);
+  set('tail1', 0, 0, Math.sin(time * 1.4 + gait) * 0.12);
+  set('tail2', 0, 0, Math.sin(time * 1.4 + gait - 0.8) * 0.18);
+
+  if (phase === 'telegraph') pose.jaw.x = 0.35;
+  if (cue?.kind === 'slam') {
+    // 前半：前脚を振り上げ、頭を上げる。後半：叩きつけて元へ
+    const up = cue.t < 0.5 ? ease(cue.t / 0.5) : 1 - ease((cue.t - 0.5) / 0.5);
+    for (const side of LEG_SIDES) {
+      pose[`fore_${side}_upper`].x = -1.1 * up;
+      pose[`fore_${side}_lower`].x = 0.9 * up;
+    }
+    pose.jaw.x = 0.4 * up;
+  } else if (cue?.kind === 'stagger') {
+    // よろめき：脚がたわみ、頭が揺れる
+    const wobble = Math.sin(cue.t * Math.PI * 6) * (1 - cue.t);
+    for (const side of LEG_SIDES) {
+      pose[`fore_${side}_lower`].x += 0.35 * Math.abs(wobble);
+      pose[`hind_${side}_lower`].x += 0.25 * Math.abs(wobble);
+    }
+    pose.head.z = wobble * 0.2;
+  } else if (cue?.kind === 'death') {
+    // 倒れる：脚を外へ崩し、頭を垂れ、あごを落とす
+    const k = ease(cue.t);
+    for (const side of LEG_SIDES) {
+      const out = side === 'l' ? -1 : 1;
+      pose[`fore_${side}_upper`].z = out * 0.65 * k;
+      pose[`fore_${side}_lower`].x = 0.6 * k;
+      pose[`hind_${side}_upper`].z = out * 0.5 * k;
+      pose[`hind_${side}_lower`].x = 0.5 * k;
+    }
+    pose.head.x = 0.45 * k;
+    pose.jaw.x = 0.3 * k;
+  }
+  return pose;
+}
+
 // 胴の前・中・後の当たり判定。位置と向きが変わったら、同じ配列の中身を書き換える
 function placeColliders(colliders, position, facing, length) {
   const reach = Math.max(0, length / 2 - COLLIDER_RADIUS);
@@ -74,7 +133,7 @@ function createShards(color) {
 }
 
 // AIの獣と代わりの獣で共通の、動き・光・かけら・当たり判定
-function rig({ pivot, length, heightAt, bodyMaterials, crystals }) {
+function rig({ pivot, length, heightAt, bodyMaterials, crystals, joints = null }) {
   const position = { x: BEAST_X, z: BEAST_Z };
   const colliders = [0, 1, 2].map(() => ({ x: 0, z: 0, radius: COLLIDER_RADIUS }));
   const baseScaleY = pivot.scale.y;
@@ -87,6 +146,10 @@ function rig({ pivot, length, heightAt, bodyMaterials, crystals }) {
 
   let glow = glowAt(0);
   let flash = 0;
+  // 関節のある獣：進んだ道のりで脚を振る
+  let gait = 0;
+  let stride = 0;
+  const lastPosition = { x: BEAST_X, z: BEAST_Z };
   let shardAge = SHARD_LIFE;
   let lastTime = null;
 
@@ -156,6 +219,7 @@ function rig({ pivot, length, heightAt, bodyMaterials, crystals }) {
 
     // 当たり判定は、見えている体と同じ向き（回転攻撃の途中も含む）に置く
     placeColliders(colliders, position, yaw, length);
+    if (joints) moveJoints(frame, cue, dt, time);
 
     pivot.position.set(position.x, heightAt(position.x, position.z) - sink + bob, position.z);
     pivot.rotation.set(pitch, yaw, roll);
@@ -177,6 +241,23 @@ function rig({ pivot, length, heightAt, bodyMaterials, crystals }) {
       material.emissiveIntensity = BODY_EMISSIVE_INTENSITY + level * 1.5;
     }
     animateShards(dt);
+  }
+
+  function moveJoints(frame, cue, dt, time) {
+    const moved = Math.hypot(position.x - lastPosition.x, position.z - lastPosition.z);
+    lastPosition.x = position.x;
+    lastPosition.z = position.z;
+    // 一歩 2.4m。突進・回転は大きく速く振る
+    gait += (moved / 2.4) * Math.PI * 2;
+    if (cue?.kind === 'spin') gait += dt * 9;
+    const speed = dt > 0 ? moved / dt : 0;
+    const target = frame.phase === 'dead' ? 0 : cue?.kind === 'charge' ? 1.4 : cue?.kind === 'spin' ? 0.8 : Math.min(1, speed / 2.5);
+    stride += (target - stride) * Math.min(1, dt * 6);
+    const pose = jointPose({ gait, stride, cue, phase: frame.phase, time });
+    for (const [name, angles] of Object.entries(pose)) {
+      const node = joints[name];
+      if (node) node.rotation.set(angles.x, angles.y, angles.z);
+    }
   }
 
   // 戦いが始まる前（または戦いの外）は、その場で呼吸と明滅だけする
@@ -206,6 +287,8 @@ function rig({ pivot, length, heightAt, bodyMaterials, crystals }) {
 
 // AIで作ったモデルを、高さ5m・足元が原点のピボットに収める
 function setupModel(model, heightAt) {
+  // 関節のある結晶獣（メートルで作ってある。結晶の高さまで含めて合わせ直すと体が縮むので、そのままの大きさ）
+  if (model.getObjectByName('fore_l_upper')) return setupJointedModel(model, heightAt);
   const pivot = new THREE.Group();
   pivot.name = 'beast';
 
@@ -247,6 +330,50 @@ function setupModel(model, heightAt) {
       hide: () => { glowUniform.value = 0; },
       show: () => {},
       color: () => colorUniform.value,
+    },
+  });
+}
+
+// 関節のある結晶獣：岩・結晶・爪の材質が分かれている。結晶の材質の光を、怒り・明滅に合わせて変える
+function setupJointedModel(model, heightAt) {
+  const pivot = new THREE.Group();
+  pivot.name = 'beast';
+  const { size } = measureModel(model);
+  pivot.add(model);
+  const bodyMaterials = new Set();
+  const crystalMaterials = new Set();
+  const joints = {};
+  model.traverse((part) => {
+    if (!part.isMesh) {
+      if (part.name) joints[part.name] = part;
+      return;
+    }
+    part.castShadow = true;
+    part.receiveShadow = true;
+    if (part.material.name === 'beast_crystal') crystalMaterials.add(part.material);
+    else if (part.material.name.startsWith('beast_rock')) {
+      part.material.emissive.copy(BODY_EMISSIVE);
+      part.material.emissiveIntensity = BODY_EMISSIVE_INTENSITY;
+      bodyMaterials.add(part.material);
+    }
+  });
+  const crystalColor = CRYSTAL_COLOR.clone();
+  return rig({
+    pivot,
+    length: size.z,
+    heightAt,
+    bodyMaterials: [...bodyMaterials],
+    joints,
+    crystals: {
+      setColor: (color) => {
+        crystalColor.copy(color);
+        for (const m of crystalMaterials) { m.color.copy(color).multiplyScalar(0.7); m.emissive.copy(color).multiplyScalar(0.55); }
+      },
+      // 明滅の強さ（1.8 前後）を、面の明暗が読める程度の発光に直す
+      setGlow: (value) => { for (const m of crystalMaterials) m.emissiveIntensity = value * 0.5; },
+      hide: () => { for (const m of crystalMaterials) m.emissiveIntensity = 0; },
+      show: () => {},
+      color: () => crystalColor,
     },
   });
 }

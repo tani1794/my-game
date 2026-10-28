@@ -196,3 +196,62 @@ test('回転攻撃の間は、当たり判定も見えている体と同じ向�
   const angle = Math.atan2(front.x - beast.position.x, front.z - beast.position.z);
   expect(Math.abs(Math.atan2(Math.sin(angle - yaw), Math.cos(angle - yaw)))).toBeLessThan(0.01);
 });
+
+// ── 関節のある結晶獣（beast-crystal.glb） ──
+import { jointPose } from '../src/world/beast.js';
+
+test('歩くと、左右の前脚が逆向きに振れる。止まっていれば振れない', () => {
+  const walking = jointPose({ gait: Math.PI / 2, stride: 1, cue: null, phase: 'approach', time: 0 });
+  expect(walking.fore_l_upper.x).toBeLessThan(-0.1);
+  expect(walking.fore_r_upper.x).toBeGreaterThan(0.1);
+  const still = jointPose({ gait: Math.PI / 2, stride: 0, cue: null, phase: 'idle', time: 0 });
+  expect(Math.abs(still.fore_l_upper.x)).toBeLessThan(0.02);
+});
+
+test('叩きつけの前半は前脚を振り上げ、後半で地面へ戻す', () => {
+  const raise = jointPose({ gait: 0, stride: 0, cue: { kind: 'slam', t: 0.45 }, phase: 'strike', time: 0 });
+  const land = jointPose({ gait: 0, stride: 0, cue: { kind: 'slam', t: 1 }, phase: 'strike', time: 0 });
+  expect(raise.fore_l_upper.x).toBeLessThan(-0.6);
+  expect(Math.abs(land.fore_l_upper.x)).toBeLessThan(0.1);
+});
+
+test('予告の間はあごが開き、倒れると脚を崩して頭を垂れる', () => {
+  expect(jointPose({ gait: 0, stride: 0, cue: null, phase: 'telegraph', time: 0 }).jaw.x).toBeGreaterThan(0.2);
+  const dead = jointPose({ gait: 0, stride: 0, cue: { kind: 'death', t: 1 }, phase: 'dead', time: 0 });
+  expect(Math.abs(dead.fore_l_upper.z)).toBeGreaterThan(0.3);
+  expect(dead.head.x).toBeGreaterThan(0.2);
+});
+
+// 関節のある獣の代わり：体と、前脚・後脚の節（名前で見つける）
+function fakeJointed() {
+  const root = new THREE.Group();
+  const body = new THREE.Group();
+  body.name = 'body';
+  root.add(body);
+  const rock = new THREE.MeshStandardMaterial({ name: 'beast_rock' });
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(4, 3, 10), rock);
+  torso.position.y = 3.5;
+  body.add(torso);
+  for (const name of ['fore_l_upper', 'fore_r_upper', 'hind_l_upper', 'hind_r_upper']) {
+    const leg = new THREE.Group();
+    leg.name = name;
+    const limb = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), rock);
+    limb.position.y = 1;
+    leg.add(limb);
+    body.add(leg);
+  }
+  const crystal = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.5), new THREE.MeshStandardMaterial({ name: 'beast_crystal' }));
+  crystal.position.y = 5.75;
+  body.add(crystal);
+  return { scene: root };
+}
+
+test('関節のある獣は、大きさを合わせ直さず（メートルのまま）、動くと脚の関節が振れる', async () => {
+  const beast = await createBeast(new THREE.Scene(), '/beast-crystal.glb', flat, async () => fakeJointed());
+  expect(heightOf(beast.object)).toBeCloseTo(6.5, 1);
+  const frame = (z) => ({ position: { x: 0, z }, facing: 0, phase: 'approach', cue: null, enraged: false });
+  for (let i = 0; i <= 30; i++) beast.apply(frame(-6 + i * 0.05), i / 30);
+  const leg = beast.object.getObjectByName('fore_l_upper');
+  const other = beast.object.getObjectByName('fore_r_upper');
+  expect(Math.abs(leg.rotation.x) + Math.abs(other.rotation.x)).toBeGreaterThan(0.1);
+});

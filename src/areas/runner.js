@@ -307,7 +307,7 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
       combatHud.setBeastName(area.data.boss.name);
     } else if (area.data.boss) {
       const groundAt = (x, z) => level().heightAt(x, z, 0, flags);
-      const view = await createBeast(scene, asset('models/beast.glb'), groundAt);
+      const view = await createBeast(scene, asset('models/beast-crystal.glb'), groundAt);
       boss = { data: area.data.boss, logic: createBossLogic(area.data.boss), view, telegraphs: createTelegraphs(scene, groundAt) };
       combatHud.setBeastName(area.data.boss.name);
     }
