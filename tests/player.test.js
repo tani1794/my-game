@@ -191,3 +191,51 @@ test('箱に入り込んだら、いちばん近い外側へ押し出す', () =>
   expect(out.x).toBeCloseTo(0.5);
   expect(out.z).toBeCloseTo(0.7);
 });
+
+// 王冠の騎士：メートルで作ったモデル（身長を合わせ直さない）、マントの骨、前垂れ
+function fakeCrowned() {
+  const scene = new THREE.Group();
+  const node = new THREE.Group();
+  node.userData = { nativeScale: true, animationSpeed: { Walking_A: 0.6, Running_A: 0.65 } };
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.1, 0.4), new THREE.MeshStandardMaterial());
+  body.position.y = 1.05;
+  node.add(body);
+  let parent = node;
+  for (let i = 0; i <= 4; i++) {
+    const bone = new THREE.Bone();
+    bone.name = `cape${i}`;
+    parent.add(bone);
+    parent = bone;
+  }
+  const tabard = new THREE.Group();
+  tabard.name = 'tabard';
+  node.add(tabard);
+  scene.add(node);
+  const animations = ['Idle', 'Walking_A', 'Running_A'].map((name) => new THREE.AnimationClip(name, 1, []));
+  return { scene, animations };
+}
+
+test('メートルで作ったモデル（王冠の騎士）は、身長を合わせ直さない', async () => {
+  const player = createPlayer(new THREE.Scene());
+  await player.load('/models/knight-crowned.glb', async () => fakeCrowned());
+  expect(heightOf(player.object.getObjectByName('character'))).toBeCloseTo(2.1, 2);
+});
+
+test('脚の長いモデルは、歩き・走りの動作をゆっくり再生する（足が滑らないように）', async () => {
+  const player = createPlayer(new THREE.Scene());
+  await player.load('/models/knight-crowned.glb', async () => fakeCrowned());
+  player.drive(0.016, run, [], flat);
+  expect(player.actionFor('Running_A').timeScale).toBeCloseTo(0.65);
+  player.drive(0.016, walk, [], flat);
+  expect(player.actionFor('Walking_A').timeScale).toBeCloseTo(0.3);
+});
+
+test('走るとマントが後ろへなびき、止まると戻る', async () => {
+  const player = createPlayer(new THREE.Scene());
+  await player.load('/models/knight-crowned.glb', async () => fakeCrowned());
+  for (let i = 0; i < 60; i++) player.drive(1 / 60, run, [], flat);
+  const lifted = player.object.getObjectByName('cape1').rotation.x;
+  expect(lifted).toBeGreaterThan(0.15);
+  for (let i = 0; i < 180; i++) player.drive(1 / 60, still, [], flat);
+  expect(Math.abs(player.object.getObjectByName('cape1').rotation.x)).toBeLessThan(0.08);
+});

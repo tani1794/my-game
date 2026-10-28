@@ -146,11 +146,19 @@ export function createPlayer(scene) {
   let mixer = null;
   let actions = {};
   let current = null;
+  // モデルごとの設定（王冠の騎士：メートルで作ってあり、脚が長いので歩き・走りをゆっくり再生）
+  let speedOf = {};
+  // マントの骨（cape1〜4）と前垂れ。動作には含まれないので、ここで揺らす
+  let capeBones = [];
+  let tabard = null;
+  let lean = 0;
+  let sway = 0;
+  const lastPosition = new THREE.Vector3();
 
   function play({ name, loop, timeScale }, fade) {
     const action = actions[name];
     if (!action) return;
-    action.timeScale = timeScale;
+    action.timeScale = timeScale * (speedOf[name] ?? 1);
     if (current === name) return;
 
     // 攻撃・回避・のけぞり・倒れるは1回だけ再生して、最後の姿勢で止める
@@ -162,14 +170,25 @@ export function createPlayer(scene) {
     current = name;
   }
 
-  // キャラクターを読み込み、身長を合わせ、マントを青く染める
+  // キャラクターを読み込み、身長を合わせ、マントを青く染める（KayKit の騎士）。
+  // 王冠の騎士（knight-crowned.glb）はメートルで作ってあるので、身長は合わせ直さない
   function setupCharacter(gltf) {
     const character = gltf.scene;
     character.name = 'character';
 
     const { box, size } = measureModel(character);
-    character.scale.setScalar(PLAYER_HEIGHT / size.y);
-    character.position.y = -box.min.y * character.scale.y;
+    let info = null;
+    character.traverse((part) => { if (part.userData?.nativeScale) info = part.userData; });
+    if (info) {
+      character.position.y = 0;
+      speedOf = info.animationSpeed ?? {};
+    } else {
+      character.scale.setScalar(PLAYER_HEIGHT / size.y);
+      character.position.y = -box.min.y * character.scale.y;
+    }
+    capeBones = [1, 2, 3, 4].map((i) => character.getObjectByName(`cape${i}`)).filter(Boolean);
+    tabard = character.getObjectByName('tabard') ?? null;
+    lastPosition.copy(object.position);
 
     character.traverse((part) => {
       if (!part.isMesh) return;
@@ -222,6 +241,38 @@ export function createPlayer(scene) {
     }
 
     object.position.y = heightAt(object.position.x, object.position.z);
+    moveCloth(dt, frame);
+  }
+
+  // マント：走るほど後ろへなびき、少し揺れる（ばねのように追いつく）。前垂れは上がった腿に合わせて前へ
+  const kneeL = new THREE.Vector3();
+  const hipL = new THREE.Vector3();
+  function moveCloth(dt, frame) {
+    if (dt <= 0) return;
+    const speed = Math.hypot(object.position.x - lastPosition.x, object.position.z - lastPosition.z) / dt;
+    lastPosition.copy(object.position);
+    if (capeBones.length) {
+      const target = Math.min(0.75, speed * 0.085) + (frame.mode === 'dodge' ? 0.25 : 0);
+      lean += (target - lean) * Math.min(1, dt * 5);
+      sway += dt * (1.6 + speed * 0.5);
+      capeBones.forEach((bone, i) => {
+        bone.rotation.x = lean * (i === 0 ? 0.7 : 0.18) + Math.sin(sway - i * 0.7) * (0.02 + speed * 0.006);
+        bone.rotation.z = Math.sin(sway * 0.7 - i) * 0.015;
+      });
+    }
+    if (tabard) {
+      // 左右の腿のうち、前へ上がっている方に合わせる
+      let lift = 0;
+      for (const side of ['l', 'r']) {
+        const upper = object.getObjectByName(`upperleg${side}`);
+        const lower = object.getObjectByName(`lowerleg${side}`);
+        if (!upper || !lower) continue;
+        object.worldToLocal(upper.getWorldPosition(hipL));
+        object.worldToLocal(lower.getWorldPosition(kneeL));
+        lift = Math.max(lift, Math.atan2(kneeL.z - hipL.z, hipL.y - kneeL.y));
+      }
+      tabard.rotation.x += (-Math.max(0, lift) * 0.9 - tabard.rotation.x) * Math.min(1, dt * 12);
+    }
   }
 
   return { object, drive, load, currentAnimation: () => current, actionFor: (name) => actions[name] };

@@ -1,5 +1,5 @@
 // 第一章（物語パート）をまとめて動かす：入力 → 主人公 → 衛兵 → 進行役（会話・出来事）→ 見た目 → 描画。
-// 主人公は結晶獣戦と同じ knight.glb・同じ playerActions（移動・3段攻撃・回避）。
+// 主人公は結晶獣戦と同じ knight-crowned.glb（王冠の騎士。元の knight.glb から作る）・同じ playerActions（移動・3段攻撃・回避）。
 import * as THREE from 'three';
 import { createPlayer, moveToWorld, pushOut, stepPosition } from '../player.js';
 import { createPlayerActions } from '../combat/playerActions.js';
@@ -69,7 +69,7 @@ export function createChapterRunner({ renderer, followCamera, input, stick, hud,
 
   // ── 主人公（結晶獣戦と同じモデル・同じ行動） ──
   const player = createPlayer(scene);
-  player.load(asset('models/knight.glb'));
+  player.load(asset('models/knight-crowned.glb'));
   const actions = createPlayerActions();
   let facing = Math.PI;
   const hitSwings = new Set();

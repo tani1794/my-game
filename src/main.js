@@ -118,7 +118,7 @@ const player = createPlayer(scene);
 // 開始位置：道の手前から、奥の結晶獣を向く
 player.object.position.set(0, 0, 6);
 player.object.rotation.y = Math.PI;
-player.load(asset('models/knight.glb'));
+player.load(asset('models/knight-crowned.glb'));
 
 // 結晶獣：読み込めたら当たり判定に加える（失敗時はコードで作る獣になる）
 let beast = null;

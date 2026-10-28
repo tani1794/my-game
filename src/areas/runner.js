@@ -74,7 +74,7 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
 
   // ── 主人公（同じモデル・同じ行動）。武器の進化は剣の色と光だけ変える ──
   const player = createPlayer(scene);
-  player.load(asset('models/knight.glb'));
+  player.load(asset('models/knight-crowned.glb'));
   const actions = createPlayerActions();
   let facing = Math.PI;
   const hitSwings = new Set();
@@ -88,7 +88,8 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
   function applyWeapon(evolved) {
     if (!swordMaterial) {
       player.object.traverse((part) => {
-        if (part.isMesh && part.name === '1H_Sword' && !swordMaterial) {
+        // KayKit の短い剣（1H_Sword）か、王冠の騎士の長剣の刃（材質 blade）
+        if (part.isMesh && (part.name === '1H_Sword' || part.material?.name === 'blade') && !swordMaterial) {
           part.material = part.material.clone();
           swordMaterial = part.material;
         }
