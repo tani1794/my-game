@@ -63,8 +63,8 @@ export function stepPosition(pos, dir, distance, colliders, bound = 28) {
   return { x, z };
 }
 
-const PLAYER_HEIGHT = 1.8;
-const CAPE_COLOR = '#5a7fd6';
+// 王冠の先まで。王冠の騎士はこの高さ（メートル）で作ってあるので、拡大縮小はほぼ 1 倍
+const PLAYER_HEIGHT = 2.0;
 const FADE_SECONDS = 0.2;
 // 攻撃と回避は、すぐに切り替わって見えるよう短いフェードにする
 const QUICK_FADE_SECONDS = 0.06;
@@ -124,7 +124,9 @@ export function createPlayer(scene) {
     current = name;
   }
 
-  // キャラクターを読み込み、身長を合わせ、マントを青く染める
+  let cape = null;
+
+  // キャラクターを読み込み、身長を合わせ、鎧に空の映り込みを付ける
   function setupCharacter(gltf) {
     const character = gltf.scene;
     character.name = 'character';
@@ -133,17 +135,22 @@ export function createPlayer(scene) {
     character.scale.setScalar(PLAYER_HEIGHT / size.y);
     character.position.y = -box.min.y * character.scale.y;
 
+    const environment = armorEnvironment();
     character.traverse((part) => {
       if (!part.isMesh) return;
       part.castShadow = true;
-      if (part.name === 'Knight_Cape') {
-        part.material = part.material.clone();
-        part.material.color.set(CAPE_COLOR);
+      // 腕を振ると体の外へ出る部分があるので、画面外判定で消えないようにする
+      part.frustumCulled = false;
+      if (part.material.metalness > 0) {
+        part.material.envMap = environment;
+        part.material.envMapIntensity = ENV_INTENSITY;
       }
     });
 
     placeholder.visible = false;
     object.add(character);
+    object.updateMatrixWorld(true);
+    cape = createCape(character);
 
     mixer = new THREE.AnimationMixer(character);
     actions = Object.fromEntries(gltf.animations.map((clip) => [clip.name, mixer.clipAction(clip)]));
@@ -164,6 +171,7 @@ export function createPlayer(scene) {
       const quick = frame.mode === 'attack' || frame.mode === 'dodge';
       play(frame.animation, quick ? QUICK_FADE_SECONDS : FADE_SECONDS);
       mixer.update(dt);
+      cape?.update(dt, frame);
     }
 
     const moving = frame.mode !== 'dead' && frame.move.speed > 0;
@@ -185,5 +193,97 @@ export function createPlayer(scene) {
     object.position.y = heightAt(object.position.x, object.position.z);
   }
 
-  return { object, drive, load, currentAnimation: () => current, actionFor: (name) => actions[name] };
+  return { object, drive, load, currentAnimation: () => current, actionFor: (name) => actions[name], capeLift: () => cape?.lift() ?? 0 };
+}
+
+// ── 鎧の映り込み ──
+// 金属は映り込むものが無いと黒くつぶれる。場面の空と地面の色（lighting.js の半球光と同じ）を
+// 小さな画像にして、騎士の材質だけに映す。three.js が自動で映り込み用に変換する
+const ENV_INTENSITY = 0.9;
+let environmentTexture = null;
+
+export function armorEnvironment() {
+  if (environmentTexture) return environmentTexture;
+  const width = 64;
+  const height = 32;
+  // 空の青をそのまま映すと黒鉄が紺に見えるので、灰色寄りにする
+  const sky = new THREE.Color('#98a2ae');
+  const horizon = new THREE.Color('#d2b088');
+  const ground = new THREE.Color('#4a3d2c');
+  const data = new Uint8Array(width * height * 4);
+  const color = new THREE.Color();
+  for (let y = 0; y < height; y++) {
+    // DataTexture は 1 行目が画像の下端（真下）
+    const up = ((y + 0.5) / height) * 2 - 1;
+    if (up > 0) color.copy(horizon).lerp(sky, Math.min(1, up * 2.2));
+    else color.copy(horizon).lerp(ground, Math.min(1, -up * 4));
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      data[i] = color.r * 255;
+      data[i + 1] = color.g * 255;
+      data[i + 2] = color.b * 255;
+      data[i + 3] = 255;
+    }
+  }
+  environmentTexture = new THREE.DataTexture(data, width, height);
+  environmentTexture.mapping = THREE.EquirectangularReflectionMapping;
+  environmentTexture.colorSpace = THREE.SRGBColorSpace;
+  environmentTexture.magFilter = THREE.LinearFilter;
+  environmentTexture.needsUpdate = true;
+  return environmentTexture;
+}
+
+// ── マント ──
+// マントの骨（右・中・左に3節ずつ）を、動きの速さに合わせて後ろへなびかせる。布の計算はせず、
+// 目標の角度へばねのように追いかけ、少し揺らすだけ（スマホでも軽い）。骨が無いモデルなら何もしない
+const CAPE_CHAINS = ['l', 'c', 'r'];
+// なびく角度を、付け根から順に何割ずつ曲げるか
+const CAPE_SHARE = [0.4, 0.33, 0.27];
+const CAPE_MAX_LIFT = 0.95; // 全力で走ったとき（ラジアン、約54°）
+const CAPE_FOLLOW = 7; // 目標の角度へ追いつく速さ（1秒あたり）
+// 倒れたときは体に沿わせて、地面に埋まらないよう少し体側へ寄せる
+const CAPE_DEAD = -0.3;
+
+export function capeTarget(frame) {
+  if (frame.mode === 'dead') return CAPE_DEAD;
+  if (frame.mode === 'attack') return 0.18;
+  const speed = Math.min(1.2, frame.move.speed / 6);
+  return CAPE_MAX_LIFT * speed ** 1.3;
+}
+
+function createCape(character) {
+  const bones = [];
+  const axis = new THREE.Vector3();
+  const parentQuat = new THREE.Quaternion();
+  for (const chain of CAPE_CHAINS) {
+    for (let k = 1; k <= 3; k++) {
+      const bone = character.getObjectByName(`cape_${chain}_${k}`);
+      if (!bone) return null;
+      // 騎士の左右の軸（+X）を、骨の親の向きで表したもの。これを軸に回すと後ろへ持ち上がる
+      bone.parent.getWorldQuaternion(parentQuat);
+      const local = new THREE.Vector3(1, 0, 0)
+        .applyQuaternion(character.getWorldQuaternion(new THREE.Quaternion()))
+        .applyQuaternion(parentQuat.clone().invert())
+        .normalize();
+      bones.push({ bone, rest: bone.quaternion.clone(), axis: local, share: CAPE_SHARE[k - 1], phase: CAPE_CHAINS.indexOf(chain) * 1.7 + k });
+    }
+  }
+
+  let lift = 0;
+  let time = 0;
+  const swing = new THREE.Quaternion();
+
+  function update(dt, frame) {
+    time += dt;
+    lift += (capeTarget(frame) - lift) * (1 - Math.exp(-CAPE_FOLLOW * dt));
+    const speed = Math.min(1, frame.move.speed / 6);
+    for (const b of bones) {
+      const flutter = (0.025 + 0.07 * speed) * Math.sin(time * (4 + 5 * speed) + b.phase) * (b.share + 0.2);
+      axis.copy(b.axis);
+      swing.setFromAxisAngle(axis, lift * b.share + flutter);
+      b.bone.quaternion.multiplyQuaternions(swing, b.rest);
+    }
+  }
+
+  return { update, lift: () => lift };
 }

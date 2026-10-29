@@ -28,3 +28,6 @@ dist-ssr
 
 # ダウンロードした元素材（軽量化する前。リポジトリには入れない）
 assets-src/packs/
+
+# Blender スクリプトの実行で作られるキャッシュ
+__pycache__/

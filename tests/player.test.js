@@ -27,7 +27,7 @@ test('移動範囲 28 の外には出ない', () => {
 
 // ── 主人公のキャラクター（Task 10） ──
 import * as THREE from 'three';
-import { createPlayer } from '../src/player.js';
+import { createPlayer, armorEnvironment, capeTarget } from '../src/player.js';
 
 // 戦いの状態（playerActions の出力）を模した frame
 const frame = (over = {}) => ({
@@ -68,11 +68,11 @@ function heightOf(object) {
   return box.max.y - box.min.y;
 }
 
-test('キャラクターを読み込むと、身長1.8mにそろえて仮の体を隠す', async () => {
+test('キャラクターを読み込むと、王冠の先まで2.0mにそろえて仮の体を隠す', async () => {
   const player = createPlayer(new THREE.Scene());
   await player.load('/models/knight.glb', async () => fakeKnight());
   expect(player.object.getObjectByName('placeholder').visible).toBe(false);
-  expect(heightOf(player.object.getObjectByName('character'))).toBeCloseTo(1.8, 1);
+  expect(heightOf(player.object.getObjectByName('character'))).toBeCloseTo(2.0, 1);
 });
 
 test('止まっていれば待機、ゆっくりなら歩き、速ければ走り', async () => {
@@ -86,11 +86,67 @@ test('止まっていれば待機、ゆっくりなら歩き、速ければ走�
   expect(player.currentAnimation()).toBe('Running_A');
 });
 
-test('マントを青く染める', async () => {
+test('金属の材質には空の映り込みを付け、金属でない材質には付けない', async () => {
+  const player = createPlayer(new THREE.Scene());
+  await player.load('/models/knight-crown.glb', async () => {
+    const knight = fakeKnight();
+    knight.scene.getObjectByName('Knight_Body').material.metalness = 1;
+    knight.scene.getObjectByName('Knight_Cape').material.metalness = 0;
+    return knight;
+  });
+  expect(player.object.getObjectByName('Knight_Body').material.envMap).toBe(armorEnvironment());
+  expect(player.object.getObjectByName('Knight_Cape').material.envMap).toBeNull();
+});
+
+// マントの骨（右・中・左に3節）を持つキャラクター
+function cloakedKnight() {
+  const knight = fakeKnight();
+  const chest = new THREE.Bone();
+  chest.name = 'chest';
+  chest.position.y = 1.4;
+  knight.scene.add(chest);
+  for (const chain of ['l', 'c', 'r']) {
+    let parent = chest;
+    for (let k = 1; k <= 3; k++) {
+      const bone = new THREE.Bone();
+      bone.name = `cape_${chain}_${k}`;
+      bone.position.y = k === 1 ? 0 : -0.4;
+      parent.add(bone);
+      parent = bone;
+    }
+  }
+  return knight;
+}
+
+test('走るとマントが後ろへなびき、止まると垂れ下がる', async () => {
+  const player = createPlayer(new THREE.Scene());
+  await player.load('/models/knight-crown.glb', async () => cloakedKnight());
+  const tip = player.object.getObjectByName('cape_c_3');
+  const tipZ = () => player.object.worldToLocal(tip.getWorldPosition(new THREE.Vector3())).z;
+  player.object.updateMatrixWorld(true);
+  const hanging = tipZ();
+  for (let i = 0; i < 60; i++) player.drive(1 / 60, run, [], flat);
+  player.object.updateMatrixWorld(true);
+  expect(player.capeLift()).toBeGreaterThan(0.7);
+  // 正面は +z。なびいたマントの先は後ろ（-z）へ
+  expect(tipZ()).toBeLessThan(hanging - 0.2);
+  for (let i = 0; i < 120; i++) player.drive(1 / 60, still, [], flat);
+  expect(player.capeLift()).toBeLessThan(0.05);
+});
+
+test('マントのなびく目標：止まれば0、走れば最大、倒れたら体側へ', () => {
+  expect(capeTarget(still)).toBe(0);
+  expect(capeTarget(run)).toBeCloseTo(0.95);
+  expect(capeTarget(walk)).toBeGreaterThan(0);
+  expect(capeTarget(walk)).toBeLessThan(capeTarget(run));
+  expect(capeTarget(frame({ mode: 'dead' }))).toBeLessThan(0);
+});
+
+test('マントの骨が無いモデルでも動ける', async () => {
   const player = createPlayer(new THREE.Scene());
   await player.load('/models/knight.glb', async () => fakeKnight());
-  const cape = player.object.getObjectByName('Knight_Cape');
-  expect(cape.material.color.b).toBeGreaterThan(cape.material.color.r);
+  expect(() => player.drive(0.016, run, [], flat)).not.toThrow();
+  expect(player.capeLift()).toBe(0);
 });
 
 test('読み込みに失敗しても、仮の体のまま動ける', async () => {

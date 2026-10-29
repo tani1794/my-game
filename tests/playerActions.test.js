@@ -192,3 +192,33 @@ test('連打しても3段目の後は必ず一度止まる（4段目はない）
   expect(chopStart).toBeGreaterThan(0);
   expect(names[chopEnd]).toBe('free');
 });
+
+test('攻撃の再生速度：剣先がいちばん速い瞬間を当たる時間に合わせるため、3段とも速めに再生する', () => {
+  const a = createPlayerActions();
+  const scales = [];
+  for (let k = 0; k < 3; k++) {
+    const f = step(a, 0.01, { attack: true });
+    scales.push(f.animation.timeScale);
+    run(a, 0.62);
+  }
+  expect(scales).toEqual([1.7, 1.5, 1.75]);
+});
+
+test('歩き・走りの再生速度は移動の速さに比例し、歩きは上限 1.8 で止まる', () => {
+  const a = createPlayerActions();
+  const slow = step(a, 0.01, { move: { x: 0, z: 0.4 } });
+  expect(slow.animation.name).toBe('Walking_A');
+  expect(slow.animation.timeScale).toBeCloseTo(1.2 / 1.4);
+  const full = step(a, 0.01, { move: { x: 0, z: 1 } });
+  expect(full.animation.timeScale).toBe(1.8);
+  const running = step(a, 0.01, { move: { x: 0, z: 1 }, run: true });
+  expect(running.animation.name).toBe('Running_A');
+  expect(running.animation.timeScale).toBeCloseTo(6 / 5.36);
+});
+
+test('回避は短いクリップを回避の時間いっぱいに広げる（再生速度 0.7）', () => {
+  const a = createPlayerActions();
+  const f = step(a, 0.01, { dodge: true, move: { x: 0, z: 1 } });
+  expect(f.mode).toBe('dodge');
+  expect(f.animation.timeScale).toBe(0.7);
+});
