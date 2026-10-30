@@ -2,6 +2,7 @@
 // 地図は kit.js（重なる床・仕掛けで変わる床）、決まりはエリアごとの rules、見た目はエリアごとの build を使う。
 // 同時に読み込むのは1エリア分だけ。次のエリアへ移るときは、前のエリアの見た目と敵を捨ててから作る。
 import * as THREE from 'three';
+import { cameraClearance } from '../camera.js';
 import { createPlayer, moveToWorld, pushOut, stepPosition } from '../player.js';
 import { createPlayerActions } from '../combat/playerActions.js';
 import { sectorHitsCircle, shapeContains } from '../combat/shapes.js';
@@ -581,14 +582,14 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
     };
   }
 
-  const toCamera = new THREE.Vector3();
-  function limitCamera(lookAt, position) {
-    toCamera.subVectors(position, lookAt);
-    const full = toCamera.length();
-    raycaster.set(lookAt, toCamera.normalize());
-    raycaster.far = full;
-    const hit = raycaster.intersectObjects(built?.occluders ?? [], false)[0];
-    return hit ? hit.distance - 0.35 : Infinity;
+  // 遮る物（岩・崖・壁）の手前まで寄る：注視点・主人公の胸と頭から、カメラとそのまわりへ線を引く（camera.js の cameraClearance）
+  function castOccluders(from, dir, far) {
+    raycaster.set(from, dir);
+    raycaster.far = far;
+    return raycaster.intersectObjects(built?.occluders ?? [], false)[0]?.distance ?? Infinity;
+  }
+  function limitCamera(lookAt, position, focus) {
+    return cameraClearance({ position, lookAt, focus: focus ?? player.object.position, cast: castOccluders });
   }
 
   let debugView = null;
@@ -967,7 +968,7 @@ export function createAreaRunner({ renderer, followCamera, input, stick, hud, co
       enemy.hit({ attack: ((enemy.hp() - left) * (100 + enemy.def.defense)) / 100, power: 1, from: { x: p.x, z: p.z - 1 } });
     },
     view: (position, look) => { debugView = position ? { position, look } : null; },
-    debug: () => ({ scene, area: area?.data.id, player: player.object.position, out, progress, flags, attack: actions.attack(), hp: actions.hp(), guards: guards.map((g) => ({ id: g.id, ...g.position(), alive: g.alive() })), foes: foes?.list().map((e) => ({ id: e.id, kind: e.def.kind, ...e.position(), alive: e.alive(), height: e.height(), hp: e.hp() })) ?? [], breakables: breakables.map((b) => ({ id: b.id, left: b.left })), boss: boss ? { active: boss.logic.active(), down: boss.logic.down(), hp: boss.logic.frame().hp, ...boss.logic.frame().position, body: boss.view ? boss.view.colliders.map((c) => ({ ...c })) : [{ ...boss.logic.frame().position, radius: boss.logic.radius }] } : null }),
+    debug: () => ({ scene, camera, area: area?.data.id, player: player.object.position, out, progress, flags, attack: actions.attack(), hp: actions.hp(), guards: guards.map((g) => ({ id: g.id, ...g.position(), alive: g.alive() })), foes: foes?.list().map((e) => ({ id: e.id, kind: e.def.kind, ...e.position(), alive: e.alive(), height: e.height(), hp: e.hp() })) ?? [], breakables: breakables.map((b) => ({ id: b.id, left: b.left })), boss: boss ? { active: boss.logic.active(), down: boss.logic.down(), hp: boss.logic.frame().hp, ...boss.logic.frame().position, body: boss.view ? boss.view.colliders.map((c) => ({ ...c })) : [{ ...boss.logic.frame().position, radius: boss.logic.radius }] } : null }),
     modalOpen: () => modalOpen,
   };
   return api;

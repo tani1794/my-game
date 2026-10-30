@@ -66,7 +66,8 @@ export async function createGuardViews(scene, posts, heightAt, { load = loadGLTF
           part.material.color.multiply(new THREE.Color('#b8c2b4'));
         }
       });
-      const hand = body.getObjectByName('handslot.r');
+      // 読み込みで骨の名前から「.」が除かれる（'handslot.r' → 'handslotr'）
+      const hand = body.getObjectByName('handslotr');
       if (blade && hand) hand.add(blade.clone());
       object.add(body);
       mixer = new THREE.AnimationMixer(body);

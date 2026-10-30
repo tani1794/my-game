@@ -127,3 +127,50 @@ test('setYaw で向きを合わせる（主人公の後ろから）', () => {
   rig.setYaw(Math.PI / 2);
   expect(rig.yaw()).toBeCloseTo(Math.PI / 2);
 });
+
+// ── 遮る物の手前までの距離：注視点だけでなく、主人公の胸と頭、カメラのまわり（画面の端・near plane）も調べる ──
+import { cameraClearance } from '../src/camera.js';
+
+function caster(meshes) {
+  const raycaster = new THREE_CAM.Raycaster();
+  return (from, dir, far) => {
+    raycaster.set(from, dir);
+    raycaster.far = far;
+    return raycaster.intersectObjects(meshes, false)[0]?.distance ?? Infinity;
+  };
+}
+const wall = (w, h, d, x, y, z) => {
+  const mesh = new THREE_CAM.Mesh(new THREE_CAM.BoxGeometry(w, h, d), new THREE_CAM.MeshBasicMaterial());
+  mesh.position.set(x, y, z);
+  mesh.updateMatrixWorld(true);
+  return mesh;
+};
+// 主人公は原点、カメラは後ろ（+z）5.5m。注視点は右へ 1.1m ずれている（肩越し）
+const scene = () => { const rig = createCameraRig(); return rig.update(new THREE_CAM.Vector3(0, 0, 0), 1 / 60); };
+
+test('遮る物がなければ、寄らない', () => {
+  const pose = scene();
+  expect(cameraClearance({ ...pose, focus: new THREE_CAM.Vector3(0, 0, 0), cast: caster([]) })).toBe(Infinity);
+});
+
+test('注視点への線は通っても、主人公の胸と頭を隠す壁があれば、その手前まで寄る', () => {
+  const pose = scene();
+  // 主人公の真後ろ 2m に、幅 1.2m の柱（注視点からカメラへの線は、右へずれているので当たらない）
+  const pillar = wall(1.2, 4, 0.4, -0.2, 1, 2);
+  const onlyLookAt = caster([pillar])(pose.lookAt, pose.position.clone().sub(pose.lookAt).normalize(), pose.position.distanceTo(pose.lookAt));
+  expect(onlyLookAt).toBe(Infinity);
+  const limit = cameraClearance({ ...pose, focus: new THREE_CAM.Vector3(0, 0, 0), cast: caster([pillar]) });
+  expect(limit).toBeLessThan(3);
+  expect(limit).toBeGreaterThan(0);
+});
+
+test('カメラのすぐ横（画面の端・near plane）に壁があれば、めり込まないように寄る', () => {
+  const pose = scene();
+  // カメラの左 0.15m を通る薄い壁（中心の線には当たらない）
+  const right = new THREE_CAM.Vector3().subVectors(pose.lookAt, pose.position).cross(new THREE_CAM.Vector3(0, 1, 0)).normalize();
+  const side = pose.position.clone().addScaledVector(right, -0.15);
+  const plate = wall(0.05, 4, 1.2, side.x, side.y, side.z - 0.4);
+  const center = caster([plate])(pose.lookAt, pose.position.clone().sub(pose.lookAt).normalize(), pose.position.distanceTo(pose.lookAt));
+  expect(center).toBe(Infinity);
+  expect(cameraClearance({ ...pose, focus: new THREE_CAM.Vector3(0, 0, 0), cast: caster([plate]) })).toBeLessThan(pose.position.distanceTo(pose.lookAt));
+});

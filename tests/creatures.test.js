@@ -94,3 +94,18 @@ test('蝙蝠：羽ばたいても、翼膜は手首と脇腹に付いたまま�
   const { upper, lower, hand } = wing;
   expect(new Set([upper.rotation.z, lower.rotation.z, hand.rotation.z].map((v) => v.toFixed(3))).size).toBe(3);
 });
+
+// 形を作るとき、three.js の警告（もとから面ごとの形に toNonIndexed を呼ぶ、など）を出さない。敵の数だけコンソールが埋まる
+import { vi } from 'vitest';
+test('どの生き物も、作るときに警告を出さない', async () => {
+  // 形は一度作ると使い回すので、読み込み直してから数える
+  vi.resetModules();
+  const fresh = await import('../src/areas/creatures.js');
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  try {
+    for (const look of fresh.CREATURE_LOOKS) fresh.createCreature(look);
+    expect(warn.mock.calls.map((c) => String(c[0]))).toEqual([]);
+  } finally {
+    warn.mockRestore();
+  }
+});

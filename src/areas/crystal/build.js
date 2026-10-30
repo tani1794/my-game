@@ -5,8 +5,9 @@ import * as THREE from 'three';
 import { mulberry32 } from '../../world/random.js';
 import { worldUV } from '../../chapter/materials.js';
 import { floorMesh } from '../kitView.js';
-import { createEchoStone, cliffMaterial, landmarkMaterial } from '../props.js';
+import { createEchoStone, cliffMaterial, landmarkMaterial, rockMesh } from '../props.js';
 import { CRYSTAL, CRYSTAL_HEIGHTS, REFLECTORS, RESONATORS, ARENA } from './layout.js';
+import { valleyRocks, mineRocks, MINE_CEILINGS, mineCeilingRocks } from './rocks.js';
 
 const { GROUND, TERRACE, MINE } = CRYSTAL_HEIGHTS;
 const DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]]; // 北・東・南・西（x, z）
@@ -127,7 +128,8 @@ export async function buildCrystal(scene, materials, { lite = false } = {}) {
     const depth = floor.id === 'terrace' ? TERRACE + 6 : floor.id === 'liftStairs' || floor.id === 'gateStairs' ? 9 : 6;
     const mesh = floorMesh(floor, rockFloor, depth);
     root.add(mesh);
-    if (floor.id === 'terrace') mesh.traverse((m) => { if (m.isMesh) occluders.push(m); });
+    // 床の厚み（段・階段・坂の側面）も、カメラが向こうへ回り込まないよう遮る物に入れる
+    mesh.traverse((m) => { if (m.isMesh) occluders.push(m); });
   }
   // 谷底（橋の下・まわり）：深い暗がり
   const abyss = new THREE.Mesh(new THREE.PlaneGeometry(260, 360), own(new THREE.MeshStandardMaterial({ color: '#16222b', roughness: 1 })));
@@ -138,23 +140,18 @@ export async function buildCrystal(scene, materials, { lite = false } = {}) {
   // ── 両側の崖（谷の壁）と、崖に生えた結晶 ──
   const rock = cliffMaterial;
   const addRock = (x, y, z, s, sy = 1.6) => {
-    const mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), rock);
+    const mesh = rockMesh(rock, s, sy, [random() * 3, random() * 3, random() * 3]);
     mesh.position.set(x, y, z);
-    mesh.scale.y = sy;
-    mesh.rotation.set(random() * 3, random() * 3, random() * 3);
     root.add(mesh);
     return mesh;
   };
-  for (let z = -60; z <= 225; z += 11) {
-    const westX = z > 140 ? -34 : z > 70 ? -42 : -46;
-    // 東は旧坑道（x 42〜76）の外側まで崖を下げる
-    const eastX = z > 140 && z < 194 ? 82 : z > 140 ? 32 : z > 70 ? 30 : 46;
-    addRock(westX - 6 - random() * 6, 2 + random() * 6, z + random() * 4, 9 + random() * 5);
-    addRock(eastX + 6 + random() * 6, 2 + random() * 6, z + random() * 4, 9 + random() * 5);
+  // 崖・入口の後ろ・東の岩棚のまわり：位置と大きさは rocks.js（歩ける床の上には置かない）。カメラはこの手前まで寄る
+  for (const r of valleyRocks(random)) {
+    const mesh = rockMesh(rock, r.s, r.sy, r.rot);
+    mesh.position.set(r.x, r.y, r.z);
+    root.add(mesh);
+    occluders.push(mesh);
   }
-  // 入口の後ろ（洞窟の出口側）と、東の岩棚のまわり
-  for (let x = -30; x <= 30; x += 10) addRock(x, 4, 224 + random() * 4, 9);
-  for (const [x, z] of [[30, 178], [26, 156], [34, 154], [46, 140], [36, 140]]) addRock(x, 0, z, 5, 1.4);
   // 結晶の群れ（崖のふもと・広場の縁）：まとめて1回で描く
   const shardGeometry = new THREE.OctahedronGeometry(1, 0);
   const shardSpots = [];
@@ -308,33 +305,25 @@ export async function buildCrystal(scene, materials, { lite = false } = {}) {
 
   // ── 旧坑道：岩の壁と低い天井、木の支柱、ランタン、トロッコ、落ちた鏡板、出口を塞ぐ崩れた支柱 ──
   const mineRock = (x, z, s = 2.6) => {
-    const mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), rock);
+    const mesh = rockMesh(rock, s, 1.3, [random() * 3, random() * 3, random() * 3]);
     mesh.position.set(x, MINE + 1.6, z);
-    mesh.scale.y = 1.3;
-    mesh.rotation.set(random() * 3, random() * 3, random() * 3);
     root.add(mesh);
     occluders.push(mesh);
   };
-  // 部屋と抜け道のまわりを岩で囲む（入口・抜け道・出口は空ける）
-  for (let x = 54; x <= 70; x += 3.5) mineRock(x, 188);
-  for (let z = 172; z <= 186; z += 3.5) { mineRock(72, z); if (z > 179) mineRock(52, z); }
-  for (const x of [54, 57.5, 61, 68.5, 72]) mineRock(x, 170.5);
-  for (let z = 161; z <= 169; z += 3) { mineRock(62.2, z, 1.8); mineRock(69.2, z, 1.8); }
-  for (const x of [58, 61.5, 70, 73.5, 77]) mineRock(x, 162);
-  for (let z = 146; z <= 160; z += 3.5) mineRock(78.2, z);
-  for (let x = 58; x <= 76; x += 3.5) mineRock(x, 144);
-  for (const z of [154, 157.5, 161]) mineRock(56.2, z);
-  for (const [x, z] of [[49, 152], [52, 152.4], [49, 144.6], [53, 145.2], [46, 172], [48, 180], [52, 172.2], [45, 179]]) mineRock(x, z, 2.2);
+  // 部屋と抜け道のまわりを岩で囲む（入口・抜け道・出口は空ける）。位置は rocks.js
+  for (const r of mineRocks()) mineRock(r.x, r.z, r.s);
   const mineCeiling = own(new THREE.MeshStandardMaterial({ color: '#1b2026', roughness: 1, side: THREE.DoubleSide }));
-  for (const [x, z, w, d] of [[62, 179, 20, 18], [65.5, 165.5, 9, 13], [67, 153, 22, 18], [52, 148, 16, 8], [48, 175, 14, 9]]) {
+  // 天井の位置は rocks.js（地上へ上がる坂の上には張らない）。天井の上は、丘に見えるよう岩で覆う
+  const coverRocks = mineCeilingRocks();
+  MINE_CEILINGS.forEach(([x, z, w, d], i) => {
     const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mineCeiling);
     ceiling.rotation.x = Math.PI / 2;
     ceiling.position.set(x, MINE + 4.6, z);
     root.add(ceiling);
     occluders.push(ceiling);
-    // 天井の上は、丘に見えるよう岩で覆う
-    addRock(x, MINE + 9, z, Math.max(w, d) * 0.45, 0.6);
-  }
+    const cover = coverRocks[i];
+    addRock(cover.x, cover.y, cover.z, cover.s, cover.sy);
+  });
   for (const [x, z] of [[58, 180], [66, 178], [67, 153]]) {
     root.add(box(materials.wood, 0.35, 4.6, 0.35, x, MINE + 2.3, z));
     root.add(box(materials.wood, 3.2, 0.3, 0.35, x, MINE + 4.4, z));

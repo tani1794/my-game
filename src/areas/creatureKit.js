@@ -28,7 +28,8 @@ export const fbm = (x, y, z) => valueNoise(x, y, z) * 0.6 + valueNoise(x * 2.3, 
 // ── 形の道具 ──
 // 岩の塊：楕円体の表面を乱して、角ばった面にする。facets：面の細かさ（0〜2）、rough：凹凸の強さ
 export function rockBlob({ size, center = [0, 0, 0], rotation = [0, 0, 0], facets = 2, rough = 0.18, seed = 1, flatBottom = null }) {
-  const g = new THREE.IcosahedronGeometry(1, facets).toNonIndexed();
+  // IcosahedronGeometry は、はじめから面ごとの頂点（index なし）。toNonIndexed は要らない（呼ぶと警告が出る）
+  const g = new THREE.IcosahedronGeometry(1, facets);
   const p = g.getAttribute('position');
   const v = new THREE.Vector3();
   for (let i = 0; i < p.count; i++) {
@@ -183,7 +184,7 @@ export function bodyLoft(points, { segments = 14, steps = 6, rough = 0.06, seed 
 
 // 角ばった岩の板：面の外向き normal に沿って平たく、流れ flow の向きに長い。半分は体に埋める
 export function plate(at, normal, flow, [width, thickness, length], seed) {
-  const g = new THREE.IcosahedronGeometry(1, 0).toNonIndexed();
+  const g = new THREE.IcosahedronGeometry(1, 0);
   const p = g.getAttribute('position');
   const random = seeded(seed * 97 + 13);
   for (let i = 0; i < p.count; i++) {

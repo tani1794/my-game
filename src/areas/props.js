@@ -171,3 +171,14 @@ export async function createRoseBushes(load = loadGLTF, lite = false) {
     return group;
   };
 }
+
+// 岩の塊（12面体）：s は外接球の半径、sy は縦の倍率、rotation は向き（x, y, z）。
+// 向きは形そのものに付け、縦の倍率は回したあとに掛ける。横は半径 s、縦は s × sy の中に収まり、rocks.js の判定と同じ範囲になる
+// （先に縦へ伸ばしてから回すと、伸びた向きが傾いて横へはみ出し、道にかかる）
+export function rockMesh(material, s, sy, rotation) {
+  const geometry = new THREE.DodecahedronGeometry(s, 0);
+  geometry.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(...rotation)));
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.scale.y = sy;
+  return mesh;
+}

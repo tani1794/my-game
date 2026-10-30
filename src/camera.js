@@ -35,6 +35,31 @@ const GROUND_CLEARANCE = 0.4;
 // 壁際では、壁の手前まで寄れるように小さく（近すぎるときは、物語側で主人公を隠す）
 const MIN_DISTANCE = 0.35;
 
+// 遮る物の手前までの距離（注視点からカメラまでの長さで表す。遮る物がなければ Infinity）。
+// 注視点（肩越しで主人公の右）だけでなく、主人公の胸と頭からも線を引き、カメラの位置とそのまわり（上下左右に radius）へ向ける。
+// 中心の1本だけでは、主人公の体だけを隠す岩や、画面の端・near plane にかかる壁を見落とすため。
+// cast(from, dir, far) → from から dir へ far までに当たった距離（なければ Infinity）
+export function cameraClearance({ position, lookAt, focus, cast, radius = 0.3, margin = 0.35 }) {
+  const full = position.distanceTo(lookAt);
+  const back = new THREE.Vector3().subVectors(position, lookAt).normalize();
+  const right = new THREE.Vector3().crossVectors(back, UP).normalize();
+  const up = new THREE.Vector3().crossVectors(right, back).normalize();
+  const origins = [lookAt, new THREE.Vector3(focus.x, focus.y + 1.0, focus.z), new THREE.Vector3(focus.x, focus.y + 1.7, focus.z)];
+  const targets = [position, ...[right, up].flatMap((axis) => [1, -1].map((side) => position.clone().addScaledVector(axis, radius * side)))];
+  const dir = new THREE.Vector3();
+  let limit = Infinity;
+  for (const from of origins) {
+    for (const to of targets) {
+      dir.subVectors(to, from);
+      const length = dir.length();
+      const hit = cast(from, dir.normalize(), length);
+      if (hit < length) limit = Math.min(limit, full * Math.max(0, (hit - margin) / length));
+    }
+  }
+  return limit;
+}
+const UP = new THREE.Vector3(0, 1, 0);
+
 // 主人公の後ろから結晶獣を見る yaw（カメラは主人公から見て結晶獣の反対側）
 export function lockYaw(player, beast) {
   return Math.atan2(player.x - beast.x, player.z - beast.z);
@@ -82,7 +107,7 @@ export function createCameraRig() {
     shakeStrength = strength;
   }
 
-  // options.limit(lookAt, position) → 注視点からカメラまでで、遮る物の手前までの距離（なければ Infinity）
+  // options.limit(lookAt, position, focus) → 注視点からカメラまでで、遮る物の手前までの距離（なければ Infinity）。focus は主人公の足もと
   // options.ground(x, z) → その場所の地面の高さ。カメラは地面より上に置く
   function update(target, dt, options = {}) {
     // 回避中は、少し遅れて主人公を追う
@@ -103,7 +128,7 @@ export function createCameraRig() {
     const viewYaw = wrap(yaw + lookOffset);
     let pose = cameraPose(follow, viewYaw, pitch, DISTANCE, SHOULDER);
     // 壁や幹があれば、すぐにその手前まで寄る。なくなったら、ゆっくり戻る
-    const allowed = options.limit ? Math.max(MIN_DISTANCE, Math.min(DISTANCE, options.limit(pose.lookAt, pose.position))) : DISTANCE;
+    const allowed = options.limit ? Math.max(MIN_DISTANCE, Math.min(DISTANCE, options.limit(pose.lookAt, pose.position, follow))) : DISTANCE;
     distance = allowed < distance ? allowed : Math.min(allowed, distance + ZOOM_RETURN_SPEED * dt);
     if (distance < DISTANCE) pose = cameraPose(follow, viewYaw, pitch, distance, SHOULDER * (distance / DISTANCE));
     if (options.ground) {

@@ -393,8 +393,9 @@ export async function createFoeViews(scene, posts, defs, heightAt, { load = load
           // 祈り手は兜を外し、頭巾をかぶせる
           if ((def.look === 'caster' || def.look === 'frostCaster' || def.look === 'duelist') && part.name.includes('Helmet')) part.visible = false;
         });
-        const hand = body.getObjectByName('handslot.r');
-        const leftHand = body.getObjectByName('handslot.l');
+        // 読み込みで骨の名前から「.」が除かれる（'handslot.r' → 'handslotr'）
+        const hand = body.getObjectByName('handslotr');
+        const leftHand = body.getObjectByName('handslotl');
         if (hand && !native) view.gear = GEAR[def.look](hand, leftHand);
         object.add(body);
         view.mixer = new THREE.AnimationMixer(body);

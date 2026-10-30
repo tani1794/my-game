@@ -111,8 +111,21 @@ export function createMaterials() {
     ctx.lineTo(s, s); ctx.closePath(); ctx.fill();
     for (let i = 0; i < 30; i++) { ctx.beginPath(); ctx.ellipse(random() * s, s * (0.7 + random() * 0.28), 1 + random() * 4, 2 + random() * 7, 0, 0, Math.PI * 2); ctx.fill(); }
   });
-  tatter.wrapS = THREE.ClampToEdgeWrapping;
-  tatter.wrapT = THREE.ClampToEdgeWrapping;
+  // glTF には alphaMap が無く、書き出し（GLTFExporter）で捨てられる。マント専用の色の画像に、破れた裾を透明として焼き込む
+  const cloakMap = noiseTexture(cloth.image.width, (ctx, s) => {
+    ctx.drawImage(cloth.image, 0, 0);
+    const pixels = ctx.getImageData(0, 0, s, s);
+    const mask = document.createElement('canvas');
+    mask.width = s; mask.height = s;
+    const maskCtx = mask.getContext('2d');
+    maskCtx.drawImage(tatter.image, 0, 0, s, s);
+    const holes = maskCtx.getImageData(0, 0, s, s).data;
+    for (let i = 0; i < pixels.data.length; i += 4) pixels.data[i + 3] = holes[i + 1];
+    ctx.putImageData(pixels, 0, 0);
+  });
+  cloakMap.colorSpace = THREE.SRGBColorSpace;
+  cloakMap.wrapS = THREE.ClampToEdgeWrapping;
+  cloakMap.wrapT = THREE.ClampToEdgeWrapping;
 
   return {
     // 景色の映り込み（環境マップ）が無い場面でも形が読めるよう、金属の反射は控えめにして、光の当たる面で明るさを出す
@@ -123,7 +136,7 @@ export function createMaterials() {
     leather: new THREE.MeshStandardMaterial({ name: 'leather', color: '#3b2b20', roughness: 0.82, metalness: 0 }),
     mail: new THREE.MeshStandardMaterial({ name: 'chain_mail', color: '#8a8a8a', map: mail, metalness: 0.35, roughness: 0.62 }),
     gambeson: new THREE.MeshStandardMaterial({ name: 'gambeson', color: '#34322c', roughness: 0.95 }),
-    cloak: new THREE.MeshStandardMaterial({ name: 'cloak', color: '#ffffff', map: cloth, alphaMap: tatter, alphaTest: 0.5, roughness: 1, metalness: 0, side: THREE.DoubleSide }),
+    cloak: new THREE.MeshStandardMaterial({ name: 'cloak', color: '#ffffff', map: cloakMap, alphaTest: 0.5, roughness: 1, metalness: 0, side: THREE.DoubleSide }),
     hood: new THREE.MeshStandardMaterial({ name: 'hood', color: '#c9cfc6', map: cloth, roughness: 1, side: THREE.DoubleSide }),
     blade: new THREE.MeshStandardMaterial({ name: 'blade', color: '#d2d7da', map: hammered, metalness: 0.7, roughness: 0.24 }),
     dark: new THREE.MeshStandardMaterial({ name: 'visor_dark', color: '#050506', roughness: 1 }),

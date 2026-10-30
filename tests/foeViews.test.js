@@ -49,6 +49,17 @@ async function setup(types, { revenant = true } = {}) {
 }
 const countMeshes = (object) => { let n = 0; object.traverse((o) => { if (o.isMesh) n += 1; }); return n; };
 const heightOf = (object) => { object.updateMatrixWorld(true); return new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3()).y; };
+// 体だけの高さ（手の持ち物は除く）
+const bodyHeightOf = (object) => {
+  object.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  object.traverse((o) => {
+    let held = false;
+    for (let p = o; p; p = p.parent) if (p.name === 'handslotr') held = true;
+    if (o.isMesh && !held) box.expandByObject(o);
+  });
+  return box.getSize(new THREE.Vector3()).y;
+};
 
 test('晶槍の亡兵は専用の模型（原寸・槍も模型の中）を使い、ほかの人型は今までの骸骨兵のまま', async () => {
   const { views, loaded } = await setup(['spear', 'shield']);
@@ -61,7 +72,7 @@ test('晶槍の亡兵は専用の模型（原寸・槍も模型の中）を使�
   expect(heightOf(spear)).toBeCloseTo(1.95, 2);
   expect(countMeshes(spear)).toBe(1);
   // 盾の骸骨兵は今までどおり：1.9m に合わせる
-  expect(heightOf(views.object('shield1'))).toBeCloseTo(1.9 * 1.12, 2);
+  expect(bodyHeightOf(views.object('shield1'))).toBeCloseTo(1.9 * 1.12, 2);
 });
 
 test('晶槍の亡兵の歩きは、脚が長くなった分ゆっくり再生する（足の滑りを抑える）', async () => {
@@ -79,7 +90,7 @@ test('専用の模型が読めないときは、今までの骸骨兵と槍で�
   spear.traverse((o) => { if (o.userData?.model) model = o.userData.model; });
   expect(model).toBe(null);
   // 今までどおり、骸骨兵を 1.9m に合わせて表示する
-  expect(heightOf(spear)).toBeCloseTo(1.9, 2);
+  expect(bodyHeightOf(spear)).toBeCloseTo(1.9, 2);
 });
 
 test('晶牙ハウンドは関節で作った体（脚の付け根の関節がある）', async () => {
@@ -97,4 +108,12 @@ test('晶槍の亡兵の外套は、歩く速さに合わせて後ろへなび�
   expect(cape(1).rotation.x).not.toBeCloseTo(cape(2).rotation.x, 3);
   for (let i = 0; i < 60; i++) views.update(0.05, [frame('spear0', 'idle', x)], 2 + i * 0.05);
   expect(Math.abs(cape(1).rotation.x)).toBeLessThan(0.08);
+});
+
+// 読み込み（GLTFLoader）は骨の名前から「.」を取り除く（'handslot.r' → 'handslotr'）。その名前で手を探さないと、持ち物が付かない
+test('骸骨兵の人型は、持ち物（槍・盾）を手に持つ', async () => {
+  const { views } = await setup(['spear', 'shield'], { revenant: false });
+  const gearIn = (id) => countMeshes(views.object(id).getObjectByName('handslotr'));
+  expect(gearIn('spear0')).toBeGreaterThan(0);
+  expect(gearIn('shield1')).toBeGreaterThan(0);
 });

@@ -4,8 +4,9 @@ import * as THREE from 'three';
 import { mulberry32 } from '../../world/random.js';
 import { worldUV } from '../../chapter/materials.js';
 import { floorMesh } from '../kitView.js';
-import { createEchoStone, cliffMaterial, landmarkMaterial } from '../props.js';
+import { createEchoStone, cliffMaterial, landmarkMaterial, rockMesh } from '../props.js';
 import { CAVE, CAVE_HEIGHTS } from './layout.js';
+import { caveRocks } from './rocks.js';
 import { REFLECTOR_START } from './rules.js';
 
 const { UP, LOW } = CAVE_HEIGHTS;
@@ -50,28 +51,23 @@ export async function buildCave(scene, materials) {
 
   for (const floor of level.floors) {
     if (floor.id === 'planks') continue;
-    root.add(floorMesh(floor, rockFloor, floor.id === 'southBank' || floor.id === 'northBank' ? 4 : 2));
+    const mesh = floorMesh(floor, rockFloor, floor.id === 'southBank' || floor.id === 'northBank' ? 4 : 2);
+    root.add(mesh);
+    // 床の厚み（階段・坂の側面）も、カメラが向こうへ回り込まないよう遮る物に入れる
+    mesh.traverse((m) => { if (m.isMesh) occluders.push(m); });
   }
 
   // ── 壁と天井：広間・下層・登りを囲む岩（遠すぎない所に、太い岩の塊を並べる） ──
   const rock = cliffMaterial;
   const addRock = (x, y, z, s, sy = 1.4) => {
-    const mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), rock);
+    const mesh = rockMesh(rock, s, sy, [random() * 3, random() * 3, random() * 3]);
     mesh.position.set(x, y, z);
-    mesh.scale.y = sy;
-    mesh.rotation.set(random() * 3, random() * 3, random() * 3);
     mesh.castShadow = true;
     root.add(mesh);
     occluders.push(mesh);
   };
-  // 広間のまわり（南の入口・西の小部屋・北の扉は空ける）
-  for (let z = 14; z <= 40; z += 4.5) { addRock(-19, 3, z, 3.6); if (Math.abs(z - 30) > 3) addRock(19, 3, z, 3.6); }
-  for (let x = -14; x <= 14; x += 4.5) { if (Math.abs(x) > 3) addRock(x, 3, 44, 3.4); if (Math.abs(x) > 3) addRock(x, 3, 8, 3.4); }
-  addRock(19, 3, 30, 3.6);
-  for (let z = 44; z <= 66; z += 4) { addRock(-5, 3, z, 2.8); addRock(5, 3, z, 2.8); }
-  // 下層の岸と川のまわり
-  for (let x = -26; x <= 26; x += 5) { addRock(x, LOW + 3, 6, 3.2); addRock(x, LOW + 2, -36, 3.4); }
-  for (let z = -34; z <= 4; z += 5) { addRock(-27, LOW + 3, z, 3.4); addRock(27, LOW + 3, z, 3.4); }
+  // 位置と大きさは rocks.js（歩ける床の上には置かない）
+  for (const r of caveRocks()) addRock(r.x, r.y, r.z, r.s, r.sy);
   // 天井：暗い岩の板と、つらら
   const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(80, 150), new THREE.MeshStandardMaterial({ color: '#1c2228', roughness: 1, side: THREE.DoubleSide }));
   ceiling.rotation.x = Math.PI / 2;
@@ -159,7 +155,9 @@ export async function buildCave(scene, materials) {
   const door = box(materials.stone, 3.6, 4, 0.8, 0, 2, 12);
   root.add(door);
   occluders.push(door);
-  root.add(box(materials.stone, 1.2, 5, 1.2, -2.4, 2.5, 12), box(materials.stone, 1.2, 5, 1.2, 2.4, 2.5, 12), box(materials.stone, 6, 1, 1.2, 0, 5, 12));
+  const doorFrame = [box(materials.stone, 1.2, 5, 1.2, -2.4, 2.5, 12), box(materials.stone, 1.2, 5, 1.2, 2.4, 2.5, 12), box(materials.stone, 6, 1, 1.2, 0, 5, 12)];
+  root.add(...doorFrame);
+  occluders.push(...doorFrame);
 
   // ── 地下水路：川、水門、水車、渡り板 ──
   const water = new THREE.Mesh(new THREE.PlaneGeometry(60, 11), materials.water);
@@ -167,7 +165,9 @@ export async function buildCave(scene, materials) {
   water.position.set(0, LOW - 0.8, -13.5);
   root.add(water);
   const sluiceGate = box(materials.wood, 2, 2.2, 0.3, -18, LOW + 1.1, -7.6);
-  root.add(sluiceGate, box(materials.stone, 0.5, 3, 0.8, -19.3, LOW + 1.5, -7.6), box(materials.stone, 0.5, 3, 0.8, -16.7, LOW + 1.5, -7.6));
+  const sluicePosts = [box(materials.stone, 0.5, 3, 0.8, -19.3, LOW + 1.5, -7.6), box(materials.stone, 0.5, 3, 0.8, -16.7, LOW + 1.5, -7.6)];
+  root.add(sluiceGate, ...sluicePosts);
+  occluders.push(sluiceGate, ...sluicePosts);
   const wheel = new THREE.Group();
   const rim = new THREE.Mesh(new THREE.TorusGeometry(2.4, 0.15, 6, 24), materials.wood);
   wheel.add(rim);
